@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block titulo %}Panel · Minimarket{% endblock %}
+{% block contenido %}
+<h1 class="h3 mb-4">Panel del administrador</h1>
+<div class="row g-3">
+  <div class="col-12 col-md-4">
+    <a href="{% url 'lista_cajeros' %}" class="card text-decoration-none h-100">
+      <div class="card-body"><h2 class="h5">Cajeros</h2><p class="text-muted mb-0">Altas, edición, contraseñas y estado.</p></div>
+    </a>
+  </div>
+  <div class="col-12 col-md-4"><div class="card h-100 opacity-50"><div class="card-body"><h2 class="h5">Productos y stock</h2><p class="text-muted mb-0">Próximo sprint.</p></div></div></div>
+  <div class="col-12 col-md-4"><div class="card h-100 opacity-50"><div class="card-body"><h2 class="h5">Reportes</h2><p class="text-muted mb-0">Próximo sprint.</p></div></div></div>
+</div>
+{% endblock %}

@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block titulo %}Caja · Minimarket{% endblock %}
+{% block contenido %}
+<h1 class="h3">Caja</h1>
+<p class="text-muted">Hola {{ user.first_name|default:user.username }}. Acá va la pantalla de cobro (Sprint 2).</p>
+{% endblock %}
