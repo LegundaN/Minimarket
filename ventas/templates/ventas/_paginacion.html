@@ -1,0 +1,7 @@
+{% if pagina.has_other_pages %}
+<nav class="d-flex justify-content-center gap-2 my-3">
+  {% if pagina.has_previous %}<a class="btn btn-outline-secondary btn-sm" href="?{% for k, v in request.GET.items %}{% if k != 'pagina' %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}pagina={{ pagina.previous_page_number }}">&larr; Anterior</a>{% endif %}
+  <span class="align-self-center small">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+  {% if pagina.has_next %}<a class="btn btn-outline-secondary btn-sm" href="?{% for k, v in request.GET.items %}{% if k != 'pagina' %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}pagina={{ pagina.next_page_number }}">Siguiente &rarr;</a>{% endif %}
+</nav>
+{% endif %}

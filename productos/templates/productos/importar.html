@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block titulo %}Importar Excel · Minimarket{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <a href="{% url 'productos:lista' %}" class="small">&larr; Productos</a>
+    <h1 class="h3 mb-3">Importar productos desde Excel</h1>
+
+    {% if resumen %}
+      <div class="card card-body mb-3">
+        <h2 class="h5">Resultado de la importación</h2>
+        <p class="mb-2">
+          <span class="badge text-bg-success fs-6">{{ resumen.creados }} creado{{ resumen.creados|pluralize }}</span>
+          <span class="badge text-bg-primary fs-6">{{ resumen.actualizados }} actualizado{{ resumen.actualizados|pluralize }}</span>
+          <span class="badge {% if resumen.errores %}text-bg-danger{% else %}text-bg-secondary{% endif %} fs-6">{{ resumen.errores|length }} error{{ resumen.errores|length|pluralize:"es" }}</span>
+        </p>
+        {% if resumen.errores %}
+          <p class="small text-muted mb-1">Estas filas no se cargaron. Corregilas en el Excel y volvé a subirlo (lo que ya se cargó no se duplica):</p>
+          <ul class="mb-0">
+            {% for fila, mensaje in resumen.errores %}
+              <li>{% if fila %}<strong>Fila {{ fila }}:</strong> {% endif %}{{ mensaje }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        <a href="{% url 'productos:lista' %}" class="btn btn-outline-primary mt-3 align-self-start">Ver productos</a>
+      </div>
+    {% endif %}
+
+    <div class="card card-body mb-3">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% include "includes/campos_form.html" %}
+        <button type="submit" class="btn btn-primary">Importar</button>
+      </form>
+    </div>
+
+    <div class="card card-body">
+      <h2 class="h6">¿Cómo tiene que ser la planilla?</h2>
+      <ul class="small mb-2">
+        <li>La primera fila tiene los títulos: <code>codigo</code> | <code>nombre</code> | <code>precio</code> | <code>categoria</code> (categoría es opcional).</li>
+        <li>Si el código <strong>ya existe</strong>, se actualizan nombre, precio y categoría. Si <strong>no existe</strong>, se crea el producto.</li>
+        <li>Importar <strong>nunca borra</strong> productos.</li>
+        <li>Si una categoría no existe, se crea sola.</li>
+        <li>Lo más fácil: <strong>descargá el Excel de productos</strong>, cambiá los precios y volvé a subirlo.</li>
+      </ul>
+      <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'productos:planilla_modelo' %}" class="btn btn-outline-secondary btn-sm">Descargar planilla modelo vacía</a>
+        <a href="{% url 'productos:exportar' %}" class="btn btn-outline-success btn-sm">Descargar Excel con los productos actuales</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

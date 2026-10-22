@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block titulo %}Productos · Minimarket{% endblock %}
+{% block contenido %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div>
+    <a href="{% url 'panel_admin' %}" class="small">&larr; Panel</a>
+    <h1 class="h3 mb-0">Productos</h1>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{% url 'productos:nuevo' %}" class="btn btn-primary">+ Agregar producto</a>
+    <a href="{% url 'productos:importar' %}" class="btn btn-outline-primary">Importar Excel</a>
+    <a href="{% url 'productos:exportar' %}" class="btn btn-outline-success">Descargar Excel</a>
+  </div>
+</div>
+
+{# Buscador rápido: filtra mientras se escribe #}
+<form method="get" id="form-busqueda" class="row g-2 mb-3">
+  <div class="col-12 col-md-8">
+    <input type="search" name="q" id="buscador" value="{{ q }}" class="form-control form-control-lg"
+           placeholder="Buscar precio por nombre o código…" autocomplete="off" autofocus>
+  </div>
+  <div class="col-12 col-md-4">
+    <select name="categoria" class="form-select form-select-lg" onchange="this.form.submit()">
+      <option value="">Todas las categorías</option>
+      {% for c in categorias %}
+        <option value="{{ c.pk }}" {% if categoria_elegida == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>
+      {% endfor %}
+      <option value="sin" {% if categoria_elegida == "sin" %}selected{% endif %}>Sin categoría</option>
+    </select>
+  </div>
+</form>
+
+<div id="resultados">{% include "productos/_tabla.html" %}</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Busca mientras se escribe (espera 300 ms después de la última tecla)
+  const buscador = document.getElementById("buscador");
+  const formulario = document.getElementById("form-busqueda");
+  let espera;
+  buscador.addEventListener("input", () => {
+    clearTimeout(espera);
+    espera = setTimeout(async () => {
+      const params = new URLSearchParams(new FormData(formulario));
+      params.set("parcial", "1");
+      const respuesta = await fetch("?" + params.toString());
+      document.getElementById("resultados").innerHTML = await respuesta.text();
+      params.delete("parcial");
+      history.replaceState(null, "", "?" + params.toString());
+    }, 300);
+  });
+</script>
+{% endblock %}

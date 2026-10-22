@@ -1,0 +1,49 @@
+{% extends "base.html" %}{% load plata %}
+{% block titulo %}Historial de cobros · Minimarket{% endblock %}
+{% block contenido %}
+<a href="{% url 'panel_admin' %}" class="small">&larr; Panel</a>
+<h1 class="h3 mb-3">Historial de cobros</h1>
+
+<form method="get" class="row g-2 align-items-end mb-3">
+  <div class="col-6 col-md-3">
+    <label class="form-label small">Fecha</label>
+    <input type="date" name="fecha" value="{{ fecha }}" class="form-control">
+  </div>
+  <div class="col-6 col-md-3">
+    <label class="form-label small">Cajero</label>
+    <select name="cajero" class="form-select">
+      <option value="">Todos</option>
+      {% for c in cajeros %}<option value="{{ c.pk }}" {% if cajero_elegido == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.get_full_name|default:c.username }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-12 col-md-auto d-flex gap-2">
+    <button class="btn btn-primary">Filtrar</button>
+    <a href="{% url 'ventas:historial' %}" class="btn btn-outline-secondary">Limpiar</a>
+  </div>
+</form>
+
+<p class="mb-2"><strong>{{ cantidad }}</strong> cobro{{ cantidad|pluralize }} · Total <strong>{{ total|pesos }}</strong></p>
+
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead class="table-light"><tr><th>#</th><th>Fecha</th><th>Hora</th><th>Cajero</th><th class="text-end">Total</th><th class="text-end">Pagó con</th><th class="text-end">Vuelto</th><th></th></tr></thead>
+    <tbody>
+      {% for v in pagina %}
+        <tr>
+          <td>{{ v.pk }}</td>
+          <td>{{ v.fecha_hora|date:"d/m/Y" }}</td>
+          <td>{{ v.fecha_hora|date:"H:i" }}</td>
+          <td>{{ v.cajero.get_full_name|default:v.cajero.username }}</td>
+          <td class="text-end fw-semibold">{{ v.total|pesos }}</td>
+          <td class="text-end">{{ v.monto_recibido|pesos }}</td>
+          <td class="text-end">{{ v.vuelto|pesos }}</td>
+          <td class="text-end"><a href="{% url 'ventas:detalle_venta' v.pk %}" class="btn btn-sm btn-outline-secondary">Ver</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">No hay cobros para mostrar.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "ventas/_paginacion.html" %}
+{% endblock %}

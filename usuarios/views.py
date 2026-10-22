@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .forms import CajeroAltaForm, CajeroEdicionForm, ResetearPasswordForm
-from .roles import CAJERO, es_administrador, es_cajero, solo_administrador, solo_cajero
+from .roles import CAJERO, es_administrador, es_cajero, solo_administrador
 
 
 # ---------- HU01 / HU10: a dónde va cada rol después del login ----------
@@ -24,12 +24,6 @@ def inicio(request):
 @solo_administrador
 def panel_admin(request):
     return render(request, "usuarios/panel_admin.html")
-
-
-@solo_cajero
-def caja(request):
-    # Pantalla provisoria: la pantalla de cobro real se arma en el Sprint 2
-    return render(request, "usuarios/caja.html")
 
 
 # ---------- HU02: gestión de cajeros (solo administrador) ----------

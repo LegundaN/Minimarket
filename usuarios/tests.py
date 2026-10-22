@@ -13,6 +13,8 @@ from django.urls import reverse
 
 class Base(TestCase):
     def setUp(self):
+        # Arrancamos sin los usuarios iniciales de la migración 0002, para probar con datos propios
+        User.objects.all().delete()
         call_command("crear_administrador", usuario="carlos", password="ClaveSegura123", stdout=StringIO())
         self.admin = User.objects.get(username="carlos")
         self.cajero = User.objects.create_user("juan", password="ClaveCajero123",
@@ -71,6 +73,15 @@ class HU10Roles(Base):
         self.assertEqual(r.status_code, 302)  # lo manda al login del admin
 
 
+class UsuariosIniciales(TestCase):
+    def test_la_migracion_crea_admin_y_cajero(self):
+        carlos = User.objects.get(username="carlos")
+        juan = User.objects.get(username="juan")
+        self.assertTrue(carlos.groups.filter(name="Administrador").exists())
+        self.assertTrue(juan.groups.filter(name="Cajero").exists())
+        self.assertFalse(juan.is_staff)
+
+
 class HU02GestionUsuarios(Base):
     def setUp(self):
         super().setUp()
@@ -107,3 +118,4 @@ class HU02GestionUsuarios(Base):
         self.assertEqual(r.status_code, 404)
         self.admin.refresh_from_db()
         self.assertTrue(self.admin.is_active)
+

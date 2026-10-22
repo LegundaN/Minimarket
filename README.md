@@ -5,6 +5,13 @@
 - **HU02 Gestión de usuarios**: el administrador da de alta, edita, resetea contraseñas y activa/desactiva cajeros (nunca se borran).
 - **HU10 Roles y permisos**: un único Administrador y N Cajeros. El cajero no puede entrar a pantallas de administración ni escribiendo la URL.
 
+## Sprint 2 — Productos, cobro y caja chica
+- **Productos** (administrador): listado con buscador rápido y filtro por categoría, carga manual, edición, eliminación, **importar Excel** (`codigo | nombre | precio | categoria`) y **descargar Excel** con los datos actuales.
+- **Cobro** (cajero): lector de código de barras o búsqueda por nombre, carrito, "¿Con cuánto pagó?" y vuelto, con botones de billetes (prueba, en `ventas/templates/ventas/_billetes.html`).
+- **Caja chica** (cajero): apertura con fondo inicial, ingresos y egresos, efectivo esperado y cierre.
+- **Consultar precio** (cajero, solo lectura).
+- **Historial de cobros** y **Cajas** (administrador): cada cobro con fecha, hora y cajero.
+
 ## Cómo levantarlo (Windows)
 ```
 python -m venv venv

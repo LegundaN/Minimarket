@@ -1,0 +1,42 @@
+{% extends "base.html" %}{% load plata %}
+{% block titulo %}Caja · Minimarket{% endblock %}
+{% block contenido %}
+<a href="{% url 'ventas:cajas' %}" class="small">&larr; Cajas</a>
+<h1 class="h3">Caja de {{ caja.cajero.get_full_name|default:caja.cajero.username }}</h1>
+<p class="text-muted">Apertura {{ caja.abierta_en|date:"d/m/Y H:i" }} · {% if caja.cerrada_en %}Cierre {{ caja.cerrada_en|date:"d/m/Y H:i" }}{% else %}<span class="badge text-bg-success">Abierta</span>{% endif %}</p>
+<div class="row g-3">
+  <div class="col-12 col-lg-5">
+    <div class="card card-body">
+      <table class="table table-sm mb-0">
+        <tr><td>Fondo inicial</td><td class="text-end">{{ caja.fondo_inicial|pesos }}</td></tr>
+        <tr><td>Ventas en efectivo ({{ caja.cantidad_ventas }})</td><td class="text-end">+ {{ caja.total_ventas_efectivo|pesos }}</td></tr>
+        <tr><td>Otros ingresos</td><td class="text-end">+ {{ caja.total_ingresos|pesos }}</td></tr>
+        <tr><td>Egresos</td><td class="text-end">− {{ caja.total_egresos|pesos }}</td></tr>
+        <tr class="fw-bold"><td>Efectivo esperado</td><td class="text-end">{{ caja.efectivo_esperado|pesos }}</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="col-12 col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header bg-white fw-semibold">Movimientos</div>
+      <ul class="list-group list-group-flush">
+        {% for m in caja.movimientos.all %}
+          <li class="list-group-item d-flex justify-content-between">
+            <span><span class="badge {% if m.tipo == 'egreso' %}text-bg-danger{% else %}text-bg-success{% endif %}">{{ m.get_tipo_display }}</span> {{ m.motivo }} <span class="small text-muted">· {{ m.fecha_hora|date:"H:i" }}</span></span>
+            <strong>{% if m.tipo == 'egreso' %}−{% else %}+{% endif %} {{ m.monto|pesos }}</strong>
+          </li>
+        {% empty %}<li class="list-group-item text-muted">Sin movimientos.</li>{% endfor %}
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header bg-white fw-semibold">Cobros de esta caja</div>
+      <ul class="list-group list-group-flush">
+        {% for v in caja.ventas.all %}
+          <a href="{% url 'ventas:detalle_venta' v.pk %}" class="list-group-item list-group-item-action d-flex justify-content-between">
+            <span>#{{ v.pk }} · {{ v.fecha_hora|date:"H:i" }}</span><strong>{{ v.total|pesos }}</strong></a>
+        {% empty %}<li class="list-group-item text-muted">Sin cobros.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

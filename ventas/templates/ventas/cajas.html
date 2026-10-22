@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% load plata %}
+{% block titulo %}Cajas · Minimarket{% endblock %}
+{% block contenido %}
+<a href="{% url 'panel_admin' %}" class="small">&larr; Panel</a>
+<h1 class="h3 mb-3">Cajas</h1>
+<form method="get" class="row g-2 align-items-end mb-3">
+  <div class="col-8 col-md-4">
+    <label class="form-label small">Cajero</label>
+    <select name="cajero" class="form-select" onchange="this.form.submit()">
+      <option value="">Todos</option>
+      {% for c in cajeros %}<option value="{{ c.pk }}" {% if cajero_elegido == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.get_full_name|default:c.username }}</option>{% endfor %}
+    </select>
+  </div>
+</form>
+<div class="table-responsive">
+  <table class="table table-hover bg-white align-middle">
+    <thead class="table-light"><tr><th>Cajero</th><th>Apertura</th><th>Cierre</th><th class="text-end">Fondo</th><th class="text-end">Efectivo esperado</th><th></th></tr></thead>
+    <tbody>
+      {% for c in pagina %}
+        <tr>
+          <td>{{ c.cajero.get_full_name|default:c.cajero.username }}</td>
+          <td>{{ c.abierta_en|date:"d/m/Y H:i" }}</td>
+          <td>{% if c.cerrada_en %}{{ c.cerrada_en|date:"d/m/Y H:i" }}{% else %}<span class="badge text-bg-success">Abierta</span>{% endif %}</td>
+          <td class="text-end">{{ c.fondo_inicial|pesos }}</td>
+          <td class="text-end fw-semibold">{{ c.efectivo_esperado|pesos }}</td>
+          <td class="text-end"><a href="{% url 'ventas:detalle_caja' c.pk %}" class="btn btn-sm btn-outline-secondary">Ver</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">Todavía no se abrió ninguna caja.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "ventas/_paginacion.html" %}
+{% endblock %}

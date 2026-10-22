@@ -11,7 +11,6 @@ urlpatterns = [
     # HU10 - Cada rol va a su pantalla
     path("", views.inicio, name="inicio"),
     path("panel/", views.panel_admin, name="panel_admin"),
-    path("caja/", views.caja, name="caja"),
 
     # HU02 - Gestión de cajeros
     path("panel/cajeros/", views.lista_cajeros, name="lista_cajeros"),

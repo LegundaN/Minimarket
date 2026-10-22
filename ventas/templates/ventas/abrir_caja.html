@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block titulo %}Abrir caja · Minimarket{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-7 col-lg-5">
+    <div class="card card-body mt-4">
+      <h1 class="h4">Abrir caja</h1>
+      <p class="text-muted">Antes de cobrar, indicá con cuánto cambio arranca la caja.</p>
+      <form method="post" action="{% url 'ventas:abrir_caja' %}" novalidate>
+        {% csrf_token %}
+        {% include "includes/campos_form.html" %}
+        <button type="submit" class="btn btn-primary btn-lg w-100">Abrir caja y empezar a cobrar</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% load plata %}
+{% block titulo %}Cobro #{{ venta.pk }} · Minimarket{% endblock %}
+{% block contenido %}
+<a href="{% url 'ventas:historial' %}" class="small">&larr; Historial de cobros</a>
+<h1 class="h3">Cobro #{{ venta.pk }}</h1>
+<p class="text-muted">{{ venta.fecha_hora|date:"d/m/Y" }} a las {{ venta.fecha_hora|date:"H:i:s" }} · Cajero: <strong>{{ venta.cajero.get_full_name|default:venta.cajero.username }}</strong> · {{ venta.get_medio_pago_display }}</p>
+<div class="table-responsive">
+  <table class="table bg-white">
+    <thead class="table-light"><tr><th>Código</th><th>Producto</th><th class="text-center">Cant.</th><th class="text-end">Precio</th><th class="text-end">Subtotal</th></tr></thead>
+    <tbody>
+      {% for d in venta.detalles.all %}
+        <tr><td><code>{{ d.codigo_producto }}</code></td><td>{{ d.nombre_producto }}{% if not d.producto %} <span class="badge text-bg-light">eliminado</span>{% endif %}</td>
+          <td class="text-center">{{ d.cantidad }}</td><td class="text-end">{{ d.precio_unitario|pesos }}</td><td class="text-end">{{ d.subtotal|pesos }}</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="fw-bold"><td colspan="4" class="text-end">Total</td><td class="text-end">{{ venta.total|pesos }}</td></tr>
+      <tr><td colspan="4" class="text-end">Pagó con</td><td class="text-end">{{ venta.monto_recibido|pesos }}</td></tr>
+      <tr><td colspan="4" class="text-end">Vuelto</td><td class="text-end">{{ venta.vuelto|pesos }}</td></tr>
+    </tfoot>
+  </table>
+</div>
+{% endblock %}

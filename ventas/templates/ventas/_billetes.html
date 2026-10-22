@@ -1,0 +1,24 @@
+{% comment %}
+  BOTONES DE BILLETES (versión de prueba)
+  Suman al cuadro "¿Con cuánto pagó?". Si no les gustan:
+    1) borrar la línea {% include "ventas/_billetes.html" %} en cobro.html
+    2) borrar este archivo
+  No hay que tocar nada más.
+{% endcomment %}
+<div class="d-flex flex-wrap gap-2 mb-1" id="billetes">
+  <button type="button" class="btn btn-outline-primary btn-lg flex-fill" data-valor="1000">$1.000</button>
+  <button type="button" class="btn btn-outline-primary btn-lg flex-fill" data-valor="2000">$2.000</button>
+  <button type="button" class="btn btn-outline-primary btn-lg flex-fill" data-valor="10000">$10.000</button>
+  <button type="button" class="btn btn-outline-primary btn-lg flex-fill" data-valor="20000">$20.000</button>
+</div>
+<div class="d-flex gap-2">
+  <button type="button" class="btn btn-primary flex-fill" id="btn-exacto">Paga exacto</button>
+  <button type="button" class="btn btn-outline-secondary" id="btn-limpiar-monto">Borrar</button>
+</div>
+<script>
+  document.querySelectorAll("#billetes [data-valor]").forEach((boton) => {
+    boton.addEventListener("click", () => window.Cobro.sumar(parseInt(boton.dataset.valor, 10)));
+  });
+  document.getElementById("btn-exacto").addEventListener("click", () => window.Cobro.exacto());
+  document.getElementById("btn-limpiar-monto").addEventListener("click", () => window.Cobro.limpiar());
+</script>

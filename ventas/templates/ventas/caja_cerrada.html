@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% load plata %}
+{% block titulo %}Caja cerrada · Minimarket{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card card-body mt-4">
+      <h1 class="h4">Caja cerrada</h1>
+      <p class="text-muted">{{ caja.cajero.get_full_name|default:caja.cajero.username }} · de {{ caja.abierta_en|date:"d/m H:i" }} a {{ caja.cerrada_en|date:"d/m H:i" }}</p>
+      <table class="table">
+        <tr><td>Fondo inicial</td><td class="text-end">{{ caja.fondo_inicial|pesos }}</td></tr>
+        <tr><td>Ventas en efectivo ({{ caja.cantidad_ventas }})</td><td class="text-end">+ {{ caja.total_ventas_efectivo|pesos }}</td></tr>
+        <tr><td>Otros ingresos</td><td class="text-end">+ {{ caja.total_ingresos|pesos }}</td></tr>
+        <tr><td>Egresos</td><td class="text-end">− {{ caja.total_egresos|pesos }}</td></tr>
+        <tr class="fw-bold fs-5"><td>Efectivo que tiene que haber</td><td class="text-end">{{ caja.efectivo_esperado|pesos }}</td></tr>
+      </table>
+      <a href="{% url 'caja' %}" class="btn btn-primary">Abrir una caja nueva</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
