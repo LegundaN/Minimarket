@@ -39,6 +39,25 @@ if not DEBUG:
     # En el servidor: cookies solo por HTTPS
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    # PythonAnywhere atiende el HTTPS y le avisa a Django con este encabezado
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# ------------------------------------------------------------------
+# Envío de mails (recuperación de contraseña)
+# Si en el servidor se definen EMAIL_HOST_USER y EMAIL_HOST_PASSWORD (en el archivo WSGI),
+# los mails salen de verdad por Gmail. Si no, se muestran en la consola / el log del servidor.
+# ------------------------------------------------------------------
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
+    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+    EMAIL_USE_TLS = True
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "Minimarket <no-responder@minimarket.local>")
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 2  # el link de recuperación vence a las 2 horas
 
 
 # Application definition
