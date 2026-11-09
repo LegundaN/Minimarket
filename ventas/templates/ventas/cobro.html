@@ -4,16 +4,16 @@
 <style>
   .total-grande { font-size: 2.6rem; font-weight: 700; }
   .vuelto-grande { font-size: 2.2rem; font-weight: 700; }
-  #resultados-busqueda .list-group-item { cursor: pointer; }
+  #resultados-busqueda .list-group-item, #lista-promos .list-group-item { cursor: pointer; }
+  #resultados-busqueda:empty { display: none; }
   .tabla-carrito td { vertical-align: middle; }
   .cantidad { width: 4.5rem; }
-  #resultados-busqueda:empty { display: none; }
 </style>
 {% endblock %}
 
 {% block contenido %}
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-  <h1 class="h3 mb-0">Cobrar</h1>
+  <h1 class="h3 mb-0"><i class="bi bi-cart3"></i> Cobrar</h1>
   <a href="{% url 'ventas:caja_chica' %}" class="small">Caja abierta desde las {{ caja.abierta_en|date:"H:i" }} · ver caja chica</a>
 </div>
 
@@ -22,22 +22,35 @@
 <div class="row g-3">
   {# ---------- Columna izquierda: lector y carrito ---------- #}
   <div class="col-12 col-lg-7">
-    <div class="card card-body mb-3 position-relative">
+    <div class="card card-body mb-3">
       <label for="lector" class="form-label fw-semibold">Escaneá el código o escribí el nombre y apretá Enter</label>
-      <input type="text" id="lector" class="form-control form-control-lg" autocomplete="off" autofocus
-             placeholder="Código de barras o nombre del producto">
+      <div class="input-group input-group-lg">
+        <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+        <input type="text" id="lector" class="form-control" autocomplete="off" autofocus
+               placeholder="Código de barras o nombre del producto">
+      </div>
       <div id="resultados-busqueda" class="list-group mt-2"></div>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-promos" {% if not promociones %}disabled{% endif %}>
+          <i class="bi bi-tags"></i> Promociones{% if promociones %} ({{ promociones|length }}){% endif %}
+        </button>
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-cliente">
+          <i class="bi bi-person-vcard"></i> Cliente con CUIT/DNI
+        </button>
+      </div>
     </div>
 
     <div class="card">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span id="cliente-elegido" class="small"><i class="bi bi-person"></i> Consumidor final</span>
+        <button type="button" id="quitar-cliente" class="btn btn-sm btn-link d-none">Quitar cliente</button>
+      </div>
       <div class="table-responsive">
         <table class="table mb-0 tabla-carrito">
           <thead class="table-light">
             <tr><th>Producto</th><th class="text-center">Cant.</th><th class="text-end">Precio</th><th class="text-end">Subtotal</th><th></th></tr>
           </thead>
-          <tbody id="carrito">
-            <tr id="carrito-vacio"><td colspan="5" class="text-center text-muted py-4">El carrito está vacío</td></tr>
-          </tbody>
+          <tbody id="carrito"></tbody>
         </table>
       </div>
     </div>
@@ -49,22 +62,73 @@
       <div class="text-muted">Total</div>
       <div id="total" class="total-grande mb-3">$ 0,00</div>
 
-      <label for="monto-recibido" class="form-label fw-semibold">¿Con cuánto pagó?</label>
-      <input type="number" id="monto-recibido" class="form-control form-control-lg mb-2" min="0" step="0.01" placeholder="0,00">
-
-      {# --- BOTONES DE BILLETES (prueba). Para sacarlos: borrar esta línea y el archivo _billetes.html --- #}
-      {% include "ventas/_billetes.html" %}
-
-      <div class="mt-3 p-3 rounded bg-light">
-        <div class="text-muted">Vuelto</div>
-        <div id="vuelto" class="vuelto-grande">$ 0,00</div>
+      <div class="btn-group w-100 mb-3" role="group" aria-label="Medio de pago">
+        <input type="radio" class="btn-check" name="medio" id="medio-efectivo" value="efectivo" checked>
+        <label class="btn btn-outline-primary" for="medio-efectivo"><i class="bi bi-cash"></i> Efectivo</label>
+        <input type="radio" class="btn-check" name="medio" id="medio-tarjeta" value="tarjeta">
+        <label class="btn btn-outline-primary" for="medio-tarjeta"><i class="bi bi-credit-card"></i> Tarjeta</label>
       </div>
 
-      <button id="btn-confirmar" class="btn btn-success btn-lg w-100 mt-3" disabled>Confirmar venta</button>
+      <div id="bloque-efectivo">
+        <label for="monto-recibido" class="form-label fw-semibold">¿Con cuánto pagó?</label>
+        <input type="number" id="monto-recibido" class="form-control form-control-lg mb-2" min="0" step="0.01" placeholder="0,00">
+
+        {# --- BOTONES DE BILLETES (prueba). Para sacarlos: borrar esta línea y el archivo _billetes.html --- #}
+        {% include "ventas/_billetes.html" %}
+
+        <div class="mt-3 p-3 rounded bg-light">
+          <div class="text-muted">Vuelto</div>
+          <div id="vuelto" class="vuelto-grande">$ 0,00</div>
+        </div>
+      </div>
+      <div id="bloque-tarjeta" class="p-3 rounded bg-light d-none">
+        <i class="bi bi-credit-card"></i> Cobrá el total con el posnet y después confirmá la venta.
+      </div>
+
+      <button id="btn-confirmar" class="btn btn-success btn-lg w-100 mt-3" disabled><i class="bi bi-check2-circle"></i> Confirmar venta</button>
       <button id="btn-cancelar" class="btn btn-outline-secondary w-100 mt-2">Cancelar venta</button>
     </div>
   </div>
 </div>
+
+{# ---------- Ventanita: promociones ---------- #}
+<div class="modal fade" id="modal-promos" tabindex="-1" aria-labelledby="titulo-promos" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title h5" id="titulo-promos"><i class="bi bi-tags"></i> Promociones</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <div class="modal-body p-0"><div id="lista-promos" class="list-group list-group-flush"></div></div>
+    </div>
+  </div>
+</div>
+
+{# ---------- Ventanita: cliente con CUIT/DNI ---------- #}
+<div class="modal fade" id="modal-cliente" tabindex="-1" aria-labelledby="titulo-cliente" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title h5" id="titulo-cliente"><i class="bi bi-person-vcard"></i> Cliente con CUIT/DNI</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <div class="modal-body">
+        <label for="cli-documento" class="form-label">CUIT o DNI</label>
+        <div class="input-group mb-2">
+          <input type="text" id="cli-documento" class="form-control form-control-lg" inputmode="numeric" placeholder="Solo números">
+          <button class="btn btn-primary" type="button" id="cli-buscar"><i class="bi bi-search"></i> Buscar</button>
+        </div>
+        <div id="cli-mensaje" class="small mb-2"></div>
+        <div id="cli-nuevo" class="d-none">
+          <div class="alert alert-info py-2 small">Es un cliente nuevo: cargalo y queda guardado para la próxima.</div>
+          <label for="cli-nombre" class="form-label">Nombre o razón social</label>
+          <input type="text" id="cli-nombre" class="form-control mb-2">
+          <label for="cli-telefono" class="form-label">Teléfono (opcional)</label>
+          <input type="text" id="cli-telefono" class="form-control mb-3">
+          <button type="button" id="cli-guardar" class="btn btn-primary w-100">Guardar y usar este cliente</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ promociones|json_script:"datos-promos" }}
 {% endblock %}
 
 {% block scripts %}
@@ -72,7 +136,11 @@
 (() => {
   const URL_BUSCAR = "{% url 'ventas:buscar_producto' %}";
   const URL_CONFIRMAR = "{% url 'ventas:confirmar_venta' %}";
+  const URL_BUSCAR_CLIENTE = "{% url 'ventas:buscar_cliente' %}";
+  const URL_CREAR_CLIENTE = "{% url 'ventas:crear_cliente' %}";
+  const URL_ANULAR = "{% url 'ventas:anular_venta' 0 %}";
   const CSRF = "{{ csrf_token }}";
+  const PROMOS = JSON.parse(document.getElementById("datos-promos").textContent);
 
   // Trabajamos todo en CENTAVOS (números enteros) para no tener errores de redondeo
   const aCentavos = (texto) => Math.round(parseFloat(texto) * 100) || 0;
@@ -86,29 +154,38 @@
   const btnConfirmar = document.getElementById("btn-confirmar");
   const aviso = document.getElementById("aviso");
 
-  let carrito = [];  // [{id, codigo, nombre, precio (centavos), cantidad}]
+  // item: {tipo: "producto"|"promo", id, codigo, nombre, precio (centavos), cantidad}
+  let carrito = [];
+  let cliente = null;
 
-  function mostrarAviso(texto, tipo = "danger") {
+  const medioPago = () => document.querySelector("input[name=medio]:checked").value;
+
+  function mostrarAviso(html, tipo = "danger", segundos = 6) {
     aviso.className = `alert alert-${tipo}`;
-    aviso.textContent = texto;
+    aviso.innerHTML = html;
     clearTimeout(mostrarAviso.t);
-    mostrarAviso.t = setTimeout(() => aviso.classList.add("d-none"), 6000);
+    mostrarAviso.t = setTimeout(() => aviso.classList.add("d-none"), segundos * 1000);
   }
+  const escapar = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
   const totalCentavos = () => carrito.reduce((suma, item) => suma + item.precio * item.cantidad, 0);
 
-  function agregar(producto) {
-    const existente = carrito.find((item) => item.id === producto.id);
+  function agregar(item) {
+    const existente = carrito.find((i) => i.tipo === item.tipo && i.id === item.id);
     if (existente) {
       existente.cantidad += 1;          // si ya estaba, suma cantidad
     } else {
-      carrito.push({ id: producto.id, codigo: producto.codigo, nombre: producto.nombre,
-                     precio: aCentavos(producto.precio), cantidad: 1 });
+      carrito.push({ ...item, cantidad: 1 });
     }
     resultados.innerHTML = "";
     lector.value = "";
     dibujar();
     lector.focus();
+  }
+
+  function agregarProducto(p) {
+    agregar({ tipo: "producto", id: p.id, codigo: p.codigo, nombre: p.nombre, precio: aCentavos(p.precio) });
+    if (p.stock <= 0) mostrarAviso(`<i class="bi bi-exclamation-triangle"></i> «${escapar(p.nombre)}» figura sin stock. Avisale al administrador.`, "warning", 4);
   }
 
   function dibujar() {
@@ -125,7 +202,7 @@
         <td class="text-end fw-semibold">${pesos(item.precio * item.cantidad)}</td>
         <td class="text-end"><button class="btn btn-sm btn-outline-danger" title="Quitar">✕</button></td>`;
       fila.querySelector(".fw-semibold").textContent = item.nombre;   // textContent: evita inyectar HTML
-      fila.querySelector(".small").textContent = item.codigo;
+      fila.querySelector(".small").textContent = item.tipo === "promo" ? "Promoción" : item.codigo;
       const inputCantidad = fila.querySelector("input");
       inputCantidad.value = item.cantidad;
       inputCantidad.addEventListener("change", () => {
@@ -146,6 +223,13 @@
   function actualizarTotales() {
     const total = totalCentavos();
     document.getElementById("total").textContent = pesos(total);
+    const efectivo = medioPago() === "efectivo";
+    document.getElementById("bloque-efectivo").classList.toggle("d-none", !efectivo);
+    document.getElementById("bloque-tarjeta").classList.toggle("d-none", efectivo);
+    if (!efectivo) {
+      btnConfirmar.disabled = carrito.length === 0;
+      return;
+    }
     const vueltoEl = document.getElementById("vuelto");
     const recibido = aCentavos(montoRecibido.value);
     if (montoRecibido.value === "" || total === 0) {
@@ -181,7 +265,7 @@
     // 1) Primero probamos como código de barras exacto
     let respuesta = await fetch(`${URL_BUSCAR}?codigo=${encodeURIComponent(texto)}`);
     if (respuesta.ok) {
-      agregar((await respuesta.json()).producto);
+      agregarProducto((await respuesta.json()).producto);
       return;
     }
     // 2) Si no es un código, buscamos por nombre y mostramos opciones
@@ -189,7 +273,7 @@
     const { productos } = await respuesta.json();
     resultados.innerHTML = "";
     if (!productos || productos.length === 0) {
-      mostrarAviso(`No se encontró ningún producto con «${texto}».`, "warning");
+      mostrarAviso(`No se encontró ningún producto con «${escapar(texto)}».`, "warning");
       lector.select();
       return;
     }
@@ -200,7 +284,7 @@
       opcion.innerHTML = "<span></span><strong></strong>";
       opcion.querySelector("span").textContent = `${p.nombre} (${p.codigo})`;
       opcion.querySelector("strong").textContent = pesos(aCentavos(p.precio));
-      opcion.addEventListener("click", () => agregar(p));
+      opcion.addEventListener("click", () => agregarProducto(p));
       resultados.appendChild(opcion);
     });
   }
@@ -218,26 +302,116 @@
   montoRecibido.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !btnConfirmar.disabled) btnConfirmar.click();
   });
+  document.querySelectorAll("input[name=medio]").forEach((r) => r.addEventListener("change", actualizarTotales));
 
+  // ---------- Promociones ----------
+  const listaPromos = document.getElementById("lista-promos");
+  const modalPromos = document.getElementById("modal-promos");
+  PROMOS.forEach((promo) => {
+    const opcion = document.createElement("button");
+    opcion.type = "button";
+    opcion.className = "list-group-item list-group-item-action";
+    opcion.innerHTML = '<div class="d-flex justify-content-between"><strong></strong><strong class="text-primary"></strong></div><div class="small text-muted"></div>';
+    opcion.querySelector("strong").textContent = promo.nombre;
+    opcion.querySelector(".text-primary").textContent = pesos(aCentavos(promo.precio));
+    opcion.querySelector(".small").textContent = promo.detalle;
+    opcion.addEventListener("click", () => {
+      agregar({ tipo: "promo", id: promo.id, codigo: "PROMO", nombre: `Promo: ${promo.nombre}`, precio: aCentavos(promo.precio) });
+      bootstrap.Modal.getOrCreateInstance(modalPromos).hide();
+    });
+    listaPromos.appendChild(opcion);
+  });
+  modalPromos.addEventListener("hidden.bs.modal", () => lector.focus());
+
+  // ---------- Cliente con CUIT/DNI ----------
+  const modalCliente = document.getElementById("modal-cliente");
+  const cliDocumento = document.getElementById("cli-documento");
+  const cliMensaje = document.getElementById("cli-mensaje");
+  const cliNuevo = document.getElementById("cli-nuevo");
+
+  function usarCliente(c) {
+    cliente = c;
+    document.getElementById("cliente-elegido").innerHTML = '<i class="bi bi-person-check"></i> <strong></strong> <span class="text-muted"></span>';
+    document.querySelector("#cliente-elegido strong").textContent = c.nombre;
+    document.querySelector("#cliente-elegido .text-muted").textContent = `${c.tipo} ${c.documento}`;
+    document.getElementById("quitar-cliente").classList.remove("d-none");
+    bootstrap.Modal.getOrCreateInstance(modalCliente).hide();
+  }
+  function quitarCliente() {
+    cliente = null;
+    document.getElementById("cliente-elegido").innerHTML = '<i class="bi bi-person"></i> Consumidor final';
+    document.getElementById("quitar-cliente").classList.add("d-none");
+  }
+  document.getElementById("quitar-cliente").addEventListener("click", quitarCliente);
+
+  async function buscarCliente() {
+    const documento = cliDocumento.value.replace(/\D/g, "");
+    cliNuevo.classList.add("d-none");
+    if (![7, 8, 11].includes(documento.length)) {
+      cliMensaje.className = "small mb-2 text-danger";
+      cliMensaje.textContent = "El DNI tiene 7 u 8 números y el CUIT 11.";
+      return;
+    }
+    const respuesta = await fetch(`${URL_BUSCAR_CLIENTE}?documento=${documento}`);
+    if (respuesta.ok) {
+      usarCliente((await respuesta.json()).cliente);
+    } else {
+      cliMensaje.textContent = "";
+      cliNuevo.classList.remove("d-none");
+      document.getElementById("cli-nombre").focus();
+    }
+  }
+  document.getElementById("cli-buscar").addEventListener("click", buscarCliente);
+  cliDocumento.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); buscarCliente(); } });
+
+  document.getElementById("cli-guardar").addEventListener("click", async () => {
+    const respuesta = await fetch(URL_CREAR_CLIENTE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF },
+      body: JSON.stringify({ documento: cliDocumento.value, nombre: document.getElementById("cli-nombre").value,
+                             telefono: document.getElementById("cli-telefono").value }),
+    });
+    const datos = await respuesta.json();
+    if (!respuesta.ok) {
+      cliMensaje.className = "small mb-2 text-danger";
+      cliMensaje.textContent = datos.error || "No se pudo guardar el cliente.";
+      return;
+    }
+    usarCliente(datos.cliente);
+  });
+  modalCliente.addEventListener("shown.bs.modal", () => {
+    cliDocumento.value = ""; cliMensaje.textContent = ""; cliNuevo.classList.add("d-none");
+    document.getElementById("cli-nombre").value = ""; document.getElementById("cli-telefono").value = "";
+    cliDocumento.focus();
+  });
+  modalCliente.addEventListener("hidden.bs.modal", () => lector.focus());
+
+  // ---------- Confirmar y cancelar ----------
   btnConfirmar.addEventListener("click", async () => {
     btnConfirmar.disabled = true;
     const respuesta = await fetch(URL_CONFIRMAR, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF },
       body: JSON.stringify({
-        items: carrito.map((item) => ({ id: item.id, cantidad: item.cantidad })),  // sin precios: los pone el servidor
+        items: carrito.map((i) => ({ tipo: i.tipo, id: i.id, cantidad: i.cantidad })),  // sin precios: los pone el servidor
+        medio_pago: medioPago(),
         monto_recibido: montoRecibido.value,
+        cliente_id: cliente ? cliente.id : null,
       }),
     });
     const datos = await respuesta.json();
     if (!respuesta.ok) {
-      mostrarAviso(datos.error || "No se pudo registrar la venta.");
+      mostrarAviso(escapar(datos.error || "No se pudo registrar la venta."));
       actualizarTotales();
       return;
     }
-    mostrarAviso(`Venta #${datos.venta_id} registrada. Total ${pesos(aCentavos(datos.total))} · Vuelto ${pesos(aCentavos(datos.vuelto))}`, "success");
+    const vuelto = medioPago() === "efectivo" ? ` · Vuelto <strong>${pesos(aCentavos(datos.vuelto))}</strong>` : " · Tarjeta";
+    mostrarAviso(`<i class="bi bi-check-circle"></i> Venta #${datos.venta_id} registrada. Total ${pesos(aCentavos(datos.total))}${vuelto}
+      <a class="alert-link ms-2" href="${URL_ANULAR.replace("/0/", "/" + datos.venta_id + "/")}">Anular esta venta</a>`, "success", 15);
     carrito = [];
     montoRecibido.value = "";
+    document.getElementById("medio-efectivo").checked = true;
+    quitarCliente();
     dibujar();
     lector.focus();
   });
@@ -247,9 +421,12 @@
     carrito = [];
     montoRecibido.value = "";
     resultados.innerHTML = "";
+    quitarCliente();
     dibujar();
     lector.focus();
   });
+
+  dibujar();
 })();
 </script>
 {% endblock %}

@@ -2,7 +2,13 @@
 {% block titulo %}Historial de cobros · Minimarket{% endblock %}
 {% block contenido %}
 <a href="{% url 'panel_admin' %}" class="small">&larr; Panel</a>
-<h1 class="h3 mb-3">Historial de cobros</h1>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <h1 class="h3 mb-0"><i class="bi bi-receipt"></i> Historial de cobros</h1>
+  <form method="get" action="{% url 'ventas:descargar_movimientos' %}" class="d-flex gap-2 align-items-center">
+    <input type="date" name="fecha" value="{{ fecha|default:hoy }}" class="form-control form-control-sm" aria-label="Día a descargar">
+    <button class="btn btn-outline-success btn-sm text-nowrap"><i class="bi bi-file-earmark-excel"></i> Descargar movimientos del día</button>
+  </form>
+</div>
 
 <form method="get" class="row g-2 align-items-end mb-3">
   <div class="col-6 col-md-3">
@@ -16,31 +22,40 @@
       {% for c in cajeros %}<option value="{{ c.pk }}" {% if cajero_elegido == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.get_full_name|default:c.username }}</option>{% endfor %}
     </select>
   </div>
+  <div class="col-6 col-md-2">
+    <label class="form-label small">Estado</label>
+    <select name="estado" class="form-select">
+      <option value="">Todos</option>
+      <option value="validas" {% if estado == "validas" %}selected{% endif %}>Válidos</option>
+      <option value="anuladas" {% if estado == "anuladas" %}selected{% endif %}>Anulados</option>
+    </select>
+  </div>
   <div class="col-12 col-md-auto d-flex gap-2">
     <button class="btn btn-primary">Filtrar</button>
     <a href="{% url 'ventas:historial' %}" class="btn btn-outline-secondary">Limpiar</a>
   </div>
 </form>
 
-<p class="mb-2"><strong>{{ cantidad }}</strong> cobro{{ cantidad|pluralize }} · Total <strong>{{ total|pesos }}</strong></p>
+<p class="mb-2"><strong>{{ cantidad }}</strong> cobro{{ cantidad|pluralize }} · Total vendido <strong>{{ total|pesos }}</strong> <span class="text-muted small">(sin contar los anulados)</span></p>
 
 <div class="table-responsive">
   <table class="table table-hover bg-white align-middle">
-    <thead class="table-light"><tr><th>#</th><th>Fecha</th><th>Hora</th><th>Cajero</th><th class="text-end">Total</th><th class="text-end">Pagó con</th><th class="text-end">Vuelto</th><th></th></tr></thead>
+    <thead class="table-light"><tr><th>#</th><th>Fecha</th><th>Hora</th><th>Cajero</th><th>Cliente</th><th>Pago</th><th class="text-end">Total</th><th class="text-end">Vuelto</th><th></th></tr></thead>
     <tbody>
       {% for v in pagina %}
-        <tr>
+        <tr class="{% if v.anulada %}table-secondary{% endif %}">
           <td>{{ v.pk }}</td>
           <td>{{ v.fecha_hora|date:"d/m/Y" }}</td>
           <td>{{ v.fecha_hora|date:"H:i" }}</td>
           <td>{{ v.cajero.get_full_name|default:v.cajero.username }}</td>
-          <td class="text-end fw-semibold">{{ v.total|pesos }}</td>
-          <td class="text-end">{{ v.monto_recibido|pesos }}</td>
+          <td class="small">{% if v.cliente %}{{ v.cliente.nombre }}{% else %}<span class="text-muted">Consumidor final</span>{% endif %}</td>
+          <td>{{ v.get_medio_pago_display }}</td>
+          <td class="text-end fw-semibold">{% if v.anulada %}<s class="text-muted">{{ v.total|pesos }}</s> <span class="badge text-bg-danger">Anulada</span>{% else %}{{ v.total|pesos }}{% endif %}</td>
           <td class="text-end">{{ v.vuelto|pesos }}</td>
           <td class="text-end"><a href="{% url 'ventas:detalle_venta' v.pk %}" class="btn btn-sm btn-outline-secondary">Ver</a></td>
         </tr>
       {% empty %}
-        <tr><td colspan="8" class="text-center text-muted py-4">No hay cobros para mostrar.</td></tr>
+        <tr><td colspan="9" class="text-center text-muted py-4">No hay cobros para mostrar.</td></tr>
       {% endfor %}
     </tbody>
   </table>

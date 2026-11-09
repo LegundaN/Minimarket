@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block titulo %}Nueva contraseña · Minimarket{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-12 col-sm-9 col-md-6 col-lg-5">
+    <div class="card tarjeta-acceso mt-4"><div class="card-body p-4">
+      {% if validlink %}
+        <h1 class="h4 mb-3"><i class="bi bi-shield-lock"></i> Elegí tu contraseña nueva</h1>
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <label for="id_new_password1" class="form-label">Contraseña nueva</label>
+          <input type="password" name="new_password1" id="id_new_password1" class="form-control form-control-lg mb-1" autocomplete="new-password" required>
+          {% for e in form.new_password1.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          <div class="form-text mb-3">Al menos 8 caracteres, que no sea solo números ni muy común.</div>
+          <label for="id_new_password2" class="form-label">Repetir contraseña</label>
+          <input type="password" name="new_password2" id="id_new_password2" class="form-control form-control-lg mb-1" autocomplete="new-password" required>
+          {% for e in form.new_password2.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">Guardar contraseña</button>
+        </form>
+      {% else %}
+        <h1 class="h4">El link no es válido</h1>
+        <p class="text-muted">Puede que ya se haya usado o que haya vencido. Pedí uno nuevo.</p>
+        <a href="{% url 'password_reset' %}" class="btn btn-primary">Pedir un link nuevo</a>
+      {% endif %}
+    </div></div>
+  </div>
+</div>
+{% endblock %}

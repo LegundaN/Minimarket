@@ -15,6 +15,7 @@
     <div>
       <strong>{{ c.get_full_name }}</strong>
       <span class="text-muted">· {{ c.username }}</span>
+      {% if c.email %}<span class="text-muted small">· {{ c.email }}</span>{% else %}<span class="badge text-bg-warning">Sin mail</span>{% endif %}
       {% if c.is_active %}<span class="badge text-bg-success">Activo</span>{% else %}<span class="badge text-bg-secondary">Inactivo</span>{% endif %}
     </div>
     <div class="d-flex gap-1 flex-wrap">

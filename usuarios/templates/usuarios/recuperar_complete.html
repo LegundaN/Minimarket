@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block titulo %}Contraseña cambiada · Minimarket{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-12 col-sm-9 col-md-6 col-lg-5">
+    <div class="card tarjeta-acceso mt-4"><div class="card-body p-4 text-center">
+      <i class="bi bi-check-circle display-5 text-primary"></i>
+      <h1 class="h4 mt-2">¡Listo!</h1>
+      <p class="text-muted">Tu contraseña se cambió. Ya podés ingresar con la nueva.</p>
+      <a href="{% url 'login' %}" class="btn btn-primary">Ingresar</a>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

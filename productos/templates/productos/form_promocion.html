@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }} · Minimarket{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <a href="{% url 'productos:promociones' %}" class="small">&larr; Promociones</a>
+    <h1 class="h3 mb-3">{{ titulo }}</h1>
+    <form method="post" class="card card-body" novalidate>
+      {% csrf_token %}
+      {% for e in form.non_field_errors %}<div class="alert alert-danger py-2">{{ e }}</div>{% endfor %}
+      <div class="row g-3">
+        <div class="col-12 col-md-7">
+          <label for="{{ form.nombre.id_for_label }}" class="form-label">{{ form.nombre.label }}</label>
+          {{ form.nombre }}{% for e in form.nombre.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+        </div>
+        <div class="col-12 col-md-5">
+          <label for="{{ form.precio.id_for_label }}" class="form-label">{{ form.precio.label }}</label>
+          {{ form.precio }}{% for e in form.precio.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+      <div class="form-check mt-3">{{ form.activa }} <label class="form-check-label" for="{{ form.activa.id_for_label }}">{{ form.activa.label }}</label>
+        <div class="form-text">{{ form.activa.help_text }}</div></div>
+
+      <h2 class="h6 mt-4">Productos de la promoción</h2>
+      {{ formset.management_form }}
+      {% for e in formset.non_form_errors %}<div class="alert alert-danger py-2">{{ e }}</div>{% endfor %}
+      <div id="items">
+        {% for f in formset %}
+          <div class="row g-2 align-items-start item mb-2">
+            {{ f.id }}
+            <div class="col-8 col-md-9">{{ f.producto }}{% for e in f.producto.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+            <div class="col-3 col-md-2">{{ f.cantidad }}</div>
+            <div class="col-1 pt-2">{% if f.instance.pk %}<label title="Quitar">{{ f.DELETE }} <i class="bi bi-trash text-danger"></i></label>{% else %}<button type="button" class="btn btn-sm btn-link text-danger p-0 quitar" title="Quitar"><i class="bi bi-x-lg"></i></button>{% endif %}</div>
+          </div>
+        {% endfor %}
+      </div>
+      <template id="item-vacio">
+        <div class="row g-2 align-items-start item mb-2">
+          {{ formset.empty_form.id }}
+          <div class="col-8 col-md-9">{{ formset.empty_form.producto }}</div>
+          <div class="col-3 col-md-2">{{ formset.empty_form.cantidad }}</div>
+          <div class="col-1 pt-2"><button type="button" class="btn btn-sm btn-link text-danger p-0 quitar" title="Quitar"><i class="bi bi-x-lg"></i></button></div>
+        </div>
+      </template>
+      <button type="button" id="agregar" class="btn btn-outline-primary btn-sm align-self-start"><i class="bi bi-plus-lg"></i> Agregar producto</button>
+      <button type="submit" class="btn btn-primary mt-4">Guardar promoción</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Agregar y quitar renglones de productos
+  const total = document.getElementById("id_items-TOTAL_FORMS");
+  const contenedor = document.getElementById("items");
+  function agregar() {
+    const n = parseInt(total.value, 10);
+    const html = document.getElementById("item-vacio").innerHTML.replace(/__prefix__/g, n);
+    contenedor.insertAdjacentHTML("beforeend", html);
+    total.value = n + 1;
+  }
+  document.getElementById("agregar").addEventListener("click", agregar);
+  contenedor.addEventListener("click", (e) => {
+    const boton = e.target.closest(".quitar");
+    if (boton && contenedor.querySelectorAll(".item").length > 1) {
+      const fila = boton.closest(".item");
+      fila.querySelectorAll("select").forEach((campo) => campo.value = "");
+      fila.querySelectorAll("input[name$=cantidad]").forEach((campo) => campo.value = "1");
+      fila.style.display = "none";  // queda vacía: Django la ignora
+    }
+  });
+  // Promoción nueva: arranca con dos renglones de productos
+  if (document.getElementById("id_items-INITIAL_FORMS").value === "0") {
+    while (contenedor.querySelectorAll(".item").length < 2) agregar();
+  }
+</script>
+{% endblock %}

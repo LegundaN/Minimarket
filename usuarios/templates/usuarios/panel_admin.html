@@ -1,27 +1,21 @@
 {% extends "base.html" %}
 {% block titulo %}Panel · Minimarket{% endblock %}
 {% block contenido %}
-<h1 class="h3 mb-4">Panel del administrador</h1>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+  <h1 class="h3 mb-0">Hola, {{ user.first_name|default:user.username }} 👋</h1>
+  {% if not user.email %}<a href="{% url 'mi_mail' %}" class="btn btn-sm btn-warning"><i class="bi bi-envelope-exclamation"></i> Cargá tu mail para poder recuperar la contraseña</a>
+  {% else %}<a href="{% url 'mi_mail' %}" class="small text-muted"><i class="bi bi-envelope"></i> {{ user.email }}</a>{% endif %}
+</div>
 <div class="row g-3">
-  <div class="col-12 col-md-6 col-lg-3">
-    <a href="{% url 'productos:lista' %}" class="card text-decoration-none h-100">
-      <div class="card-body"><h2 class="h5">Productos</h2><p class="text-muted mb-0">Precios, categorías e importar/descargar Excel.</p></div>
+  {% for url, icono, titulo, texto in accesos %}
+  <div class="col-12 col-sm-6 col-lg-4">
+    <a href="{{ url }}" class="card mm-acceso text-decoration-none h-100">
+      <div class="card-body d-flex gap-3 align-items-start">
+        <i class="bi {{ icono }}"></i>
+        <div><h2 class="h5 mb-1">{{ titulo }}</h2><p class="text-muted mb-0 small">{{ texto }}</p></div>
+      </div>
     </a>
   </div>
-  <div class="col-12 col-md-6 col-lg-3">
-    <a href="{% url 'ventas:historial' %}" class="card text-decoration-none h-100">
-      <div class="card-body"><h2 class="h5">Historial de cobros</h2><p class="text-muted mb-0">Ventas con fecha, hora y cajero.</p></div>
-    </a>
-  </div>
-  <div class="col-12 col-md-6 col-lg-3">
-    <a href="{% url 'ventas:cajas' %}" class="card text-decoration-none h-100">
-      <div class="card-body"><h2 class="h5">Cajas</h2><p class="text-muted mb-0">Aperturas, movimientos y cierres de caja chica.</p></div>
-    </a>
-  </div>
-  <div class="col-12 col-md-6 col-lg-3">
-    <a href="{% url 'lista_cajeros' %}" class="card text-decoration-none h-100">
-      <div class="card-body"><h2 class="h5">Cajeros</h2><p class="text-muted mb-0">Altas, edición, contraseñas y estado.</p></div>
-    </a>
-  </div>
+  {% endfor %}
 </div>
 {% endblock %}

@@ -89,7 +89,7 @@ class HU02GestionUsuarios(Base):
 
     def test_alta_crea_siempre_un_cajero(self):
         self.client.post(reverse("alta_cajero"), {
-            "first_name": "Ana", "last_name": "Gómez", "username": "ana",
+            "first_name": "Ana", "last_name": "Gómez", "username": "ana", "email": "ana@ejemplo.com",
             "password1": "ClaveNueva123", "password2": "ClaveNueva123"})
         ana = User.objects.get(username="ana")
         self.assertTrue(ana.groups.filter(name="Cajero").exists())
@@ -97,7 +97,7 @@ class HU02GestionUsuarios(Base):
 
     def test_editar_cajero(self):
         self.client.post(reverse("editar_cajero", args=[self.cajero.pk]),
-                         {"first_name": "Juan Carlos", "last_name": "Pérez", "username": "juan"})
+                         {"first_name": "Juan Carlos", "last_name": "Pérez", "username": "juan", "email": "juan@ejemplo.com"})
         self.cajero.refresh_from_db()
         self.assertEqual(self.cajero.first_name, "Juan Carlos")
 

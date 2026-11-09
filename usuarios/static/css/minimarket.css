@@ -1,0 +1,69 @@
+/* =====================================================================
+   Estilos del Minimarket (paleta A · Verde Neosoft)
+   Para cambiar los colores de todo el sistema, alcanza con tocar
+   las variables de acá abajo.
+   ===================================================================== */
+:root {
+  --mm-principal: #10B981;        /* botones, links, detalles */
+  --mm-principal-oscuro: #059669; /* hover de botones */
+  --mm-barra: #064E3B;            /* barra de arriba y títulos */
+  --mm-fondo: #F0FDF4;            /* fondo de la página */
+  --mm-suave: #ECFDF5;            /* fondos suaves (encabezados de tablas) */
+
+  --bs-primary: var(--mm-principal);
+  --bs-primary-rgb: 16, 185, 129;
+  --bs-link-color: var(--mm-principal-oscuro);
+  --bs-link-color-rgb: 5, 150, 105;
+  --bs-link-hover-color: var(--mm-barra);
+  --bs-body-font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body { background: var(--mm-fondo); min-height: 100vh; display: flex; flex-direction: column; }
+main { flex: 1; }
+
+/* Barra superior */
+.navbar.mm-barra { background: var(--mm-barra) !important; box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+.navbar.mm-barra .navbar-brand { font-weight: 700; letter-spacing: .3px; }
+.navbar.mm-barra .nav-link { color: rgba(255,255,255,.85); border-radius: 8px; }
+.navbar.mm-barra .nav-link:hover, .navbar.mm-barra .nav-link.active { color: #fff; background: rgba(255,255,255,.12); }
+.mm-marca-icono { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px;
+  border-radius: 10px; background: var(--mm-principal); color: #fff; margin-right: .45rem; }
+
+/* Tarjetas y botones */
+.card { border: none; border-radius: 14px; box-shadow: 0 4px 14px rgba(6,78,59,.08); }
+.btn { border-radius: 10px; }
+.btn-primary, .btn-success {
+  --bs-btn-bg: var(--mm-principal); --bs-btn-border-color: var(--mm-principal);
+  --bs-btn-hover-bg: var(--mm-principal-oscuro); --bs-btn-hover-border-color: var(--mm-principal-oscuro);
+  --bs-btn-active-bg: var(--mm-barra); --bs-btn-active-border-color: var(--mm-barra);
+  --bs-btn-disabled-bg: var(--mm-principal); --bs-btn-disabled-border-color: var(--mm-principal);
+}
+.btn-outline-primary, .btn-outline-success {
+  --bs-btn-color: var(--mm-principal-oscuro); --bs-btn-border-color: var(--mm-principal);
+  --bs-btn-hover-bg: var(--mm-principal); --bs-btn-hover-border-color: var(--mm-principal);
+  --bs-btn-active-bg: var(--mm-principal-oscuro); --bs-btn-active-border-color: var(--mm-principal-oscuro);
+}
+.text-primary { color: var(--mm-principal) !important; }
+.text-success { color: var(--mm-principal-oscuro) !important; }
+.badge.text-bg-success { background: var(--mm-principal) !important; }
+
+h1, .h1, h2, .h2, h3, .h3, h4, .h4 { color: var(--mm-barra); font-weight: 700; }
+.form-control:focus, .form-select:focus { border-color: var(--mm-principal); box-shadow: 0 0 0 .2rem rgba(16,185,129,.2); }
+.table > thead th, .table-light th { background: var(--mm-suave) !important; color: var(--mm-barra); }
+
+/* Panel del administrador */
+.mm-acceso { transition: transform .12s, box-shadow .12s; }
+.mm-acceso:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(6,78,59,.14); }
+.mm-acceso .bi { font-size: 1.8rem; color: var(--mm-principal); }
+
+/* Login y recuperación de contraseña */
+.tarjeta-acceso { overflow: hidden; }
+.mm-login-encabezado { background: var(--mm-barra); color: #fff; padding: 1.8rem 1.5rem; text-align: center; }
+.mm-login-encabezado .mm-marca-icono { width: 56px; height: 56px; font-size: 1.7rem; border-radius: 16px; margin: 0 0 .6rem; }
+.mm-login-encabezado h1 { color: #fff; margin: 0; }
+
+/* Pantalla de cobro */
+.total-grande, .vuelto-grande { color: var(--mm-barra); }
+.vuelto-grande.text-success { color: var(--mm-principal-oscuro) !important; }
+
+footer.mm-pie { color: #64748B; font-size: .8rem; text-align: center; padding: 1rem; }

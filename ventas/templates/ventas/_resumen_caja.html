@@ -1,0 +1,16 @@
+{% load plata %}
+<table class="table table-sm mb-2">
+  <tr><td>Fondo inicial</td><td class="text-end">{{ caja.fondo_inicial|pesos }}</td></tr>
+  <tr><td>Ventas en efectivo</td><td class="text-end">+ {{ caja.total_ventas_efectivo|pesos }}</td></tr>
+  <tr><td>Otros ingresos</td><td class="text-end">+ {{ caja.total_ingresos|pesos }}</td></tr>
+  <tr><td>Egresos</td><td class="text-end">− {{ caja.total_egresos|pesos }}</td></tr>
+  <tr class="fw-bold"><td>Efectivo que tiene que haber</td><td class="text-end">{{ caja.efectivo_esperado|pesos }}</td></tr>
+  <tr class="text-muted"><td>Ventas con tarjeta (no entran a la caja)</td><td class="text-end">{{ caja.total_ventas_tarjeta|pesos }}</td></tr>
+  <tr class="text-muted"><td>Operaciones</td><td class="text-end">{{ caja.cantidad_ventas }}{% if caja.cantidad_anuladas %} <span class="small">({{ caja.cantidad_anuladas }} anulada{{ caja.cantidad_anuladas|pluralize }})</span>{% endif %}</td></tr>
+  {% if caja.efectivo_contado is not None %}
+  <tr><td>Efectivo contado</td><td class="text-end">{{ caja.efectivo_contado|pesos }}</td></tr>
+  <tr class="fw-bold {% if caja.diferencia < 0 %}text-danger{% elif caja.diferencia > 0 %}text-warning{% else %}text-success{% endif %}">
+    <td>{% if caja.diferencia < 0 %}Faltante{% elif caja.diferencia > 0 %}Sobrante{% else %}Sin diferencia{% endif %}</td>
+    <td class="text-end">{{ caja.diferencia_absoluta|pesos }}</td></tr>
+  {% endif %}
+</table>

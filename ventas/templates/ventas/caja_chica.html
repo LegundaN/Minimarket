@@ -4,7 +4,7 @@
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
   <div>
     <a href="{% url 'caja' %}" class="small">&larr; Volver a cobrar</a>
-    <h1 class="h3 mb-0">Caja chica</h1>
+    <h1 class="h3 mb-0"><i class="bi bi-wallet2"></i> Caja chica</h1>
   </div>
   <span class="text-muted small">Abierta el {{ caja.abierta_en|date:"d/m/Y" }} a las {{ caja.abierta_en|date:"H:i" }}</span>
 </div>
@@ -12,14 +12,7 @@
 <div class="row g-3">
   <div class="col-12 col-lg-5">
     <div class="card card-body mb-3">
-      <table class="table table-sm mb-2">
-        <tr><td>Fondo inicial</td><td class="text-end">{{ caja.fondo_inicial|pesos }}</td></tr>
-        <tr><td>Ventas en efectivo ({{ caja.cantidad_ventas }})</td><td class="text-end">+ {{ caja.total_ventas_efectivo|pesos }}</td></tr>
-        <tr><td>Otros ingresos</td><td class="text-end">+ {{ caja.total_ingresos|pesos }}</td></tr>
-        <tr><td>Egresos</td><td class="text-end">− {{ caja.total_egresos|pesos }}</td></tr>
-      </table>
-      <div class="text-muted">Efectivo que tiene que haber en la caja</div>
-      <div class="fs-2 fw-bold">{{ caja.efectivo_esperado|pesos }}</div>
+      {% include "ventas/_resumen_caja.html" %}
     </div>
 
     <div class="card card-body mb-3">
@@ -31,14 +24,36 @@
       </form>
     </div>
 
-    <form method="post" action="{% url 'ventas:cerrar_caja' %}"
-          onsubmit="return confirm('¿Cerrar la caja? Después de cerrarla no vas a poder cobrar hasta abrir una nueva.');">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-outline-danger w-100">Cerrar caja</button>
-    </form>
+    <div class="card card-body border border-danger-subtle">
+      <h2 class="h6"><i class="bi bi-door-closed"></i> Cerrar caja (fin del turno)</h2>
+      <form method="post" action="{% url 'ventas:cerrar_caja' %}" novalidate
+            onsubmit="return confirm('¿Cerrar la caja? Después no vas a poder cobrar hasta abrir una nueva.');">
+        {% csrf_token %}
+        {% with form=form_cierre %}{% include "includes/campos_form.html" %}{% endwith %}
+        <button type="submit" class="btn btn-outline-danger w-100">Cerrar caja</button>
+      </form>
+    </div>
   </div>
 
   <div class="col-12 col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header bg-white fw-semibold">Ventas del turno</div>
+      <ul class="list-group list-group-flush">
+        {% for v in ventas %}
+          <li class="list-group-item d-flex justify-content-between align-items-center gap-2 {% if v.anulada %}bg-body-secondary{% endif %}">
+            <span>#{{ v.pk }} · {{ v.fecha_hora|date:"H:i" }} · {{ v.get_medio_pago_display }}
+              {% if v.cliente %}<span class="small text-muted">· {{ v.cliente.nombre }}</span>{% endif %}
+              {% if v.anulada %}<span class="badge text-bg-danger">Anulada</span>{% endif %}</span>
+            <span class="d-flex align-items-center gap-2">
+              <strong class="{% if v.anulada %}text-decoration-line-through text-muted{% endif %}">{{ v.total|pesos }}</strong>
+              {% if not v.anulada %}<a href="{% url 'ventas:anular_venta' v.pk %}" class="btn btn-sm btn-outline-danger">Anular</a>{% endif %}
+            </span>
+          </li>
+        {% empty %}
+          <li class="list-group-item text-muted">Todavía no hay ventas en este turno.</li>
+        {% endfor %}
+      </ul>
+    </div>
     <div class="card">
       <div class="card-header bg-white fw-semibold">Movimientos del turno</div>
       <ul class="list-group list-group-flush">

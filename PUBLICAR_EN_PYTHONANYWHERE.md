@@ -125,6 +125,25 @@ Y después **Web → Reload**.
 
 ---
 
+## Parte 6 — Mails para recuperar la contraseña (opcional)
+
+El sistema necesita una casilla de mail desde donde mandar los links de "¿Olvidaste tu contraseña?". Recomendado: crear un Gmail solo para el sistema (por ejemplo `minimarket.neosoft@gmail.com`).
+
+1. En esa cuenta de Google activá la **verificación en dos pasos** (Cuenta de Google → Seguridad).
+2. Entrá a **Contraseñas de aplicaciones** (buscalo en la barra de la cuenta de Google), creá una con el nombre "Minimarket" y copiá la clave de 16 letras.
+3. En PythonAnywhere abrí el archivo **WSGI** (pestaña Web) y agregá, junto a los otros `os.environ`:
+   ```python
+   os.environ["EMAIL_HOST_USER"] = "minimarket.neosoft@gmail.com"
+   os.environ["EMAIL_HOST_PASSWORD"] = "LA-CLAVE-DE-16-LETRAS"
+   ```
+4. **Reload**.
+
+Mientras no lo configuren, los mails no salen: se escriben en el *server log* de la pestaña Web (sirve para probar). Esta clave **nunca** va en GitHub ni en Trello.
+
+> Las cuentas gratuitas de PythonAnywhere solo dejan mandar mails por Gmail; por eso usamos Gmail.
+
+---
+
 ## Para no perderlo
 
 - La cuenta gratis **da de baja la web app si no se renueva en un mes**. En la pestaña **Web** hay un botón para extenderla: pónganse un recordatorio mensual.

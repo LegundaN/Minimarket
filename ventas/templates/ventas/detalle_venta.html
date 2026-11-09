@@ -2,21 +2,31 @@
 {% block titulo %}Cobro #{{ venta.pk }} · Minimarket{% endblock %}
 {% block contenido %}
 <a href="{% url 'ventas:historial' %}" class="small">&larr; Historial de cobros</a>
-<h1 class="h3">Cobro #{{ venta.pk }}</h1>
-<p class="text-muted">{{ venta.fecha_hora|date:"d/m/Y" }} a las {{ venta.fecha_hora|date:"H:i:s" }} · Cajero: <strong>{{ venta.cajero.get_full_name|default:venta.cajero.username }}</strong> · {{ venta.get_medio_pago_display }}</p>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <h1 class="h3 mb-0">Cobro #{{ venta.pk }} {% if venta.anulada %}<span class="badge text-bg-danger fs-6 align-middle">Anulada</span>{% endif %}</h1>
+  {% if puede_anular %}<a href="{% url 'ventas:anular_venta' venta.pk %}" class="btn btn-outline-danger"><i class="bi bi-x-octagon"></i> Anular venta</a>{% endif %}
+</div>
+<p class="text-muted">{{ venta.fecha_hora|date:"d/m/Y" }} a las {{ venta.fecha_hora|date:"H:i:s" }} · Cajero: <strong>{{ venta.cajero.get_full_name|default:venta.cajero.username }}</strong> · {{ venta.get_medio_pago_display }}
+  · Cliente: {% if venta.cliente %}<strong>{{ venta.cliente.nombre }}</strong> ({{ venta.cliente.tipo_documento }} {{ venta.cliente.documento }}){% else %}Consumidor final{% endif %}</p>
+{% if venta.anulada %}
+  <div class="alert alert-danger py-2">Anulada el {{ venta.anulada_en|date:"d/m/Y" }} a las {{ venta.anulada_en|date:"H:i" }} por <strong>{{ venta.anulada_por.get_full_name|default:venta.anulada_por.username }}</strong>. Motivo: «{{ venta.motivo_anulacion }}»</div>
+{% endif %}
 <div class="table-responsive">
   <table class="table bg-white">
     <thead class="table-light"><tr><th>Código</th><th>Producto</th><th class="text-center">Cant.</th><th class="text-end">Precio</th><th class="text-end">Subtotal</th></tr></thead>
     <tbody>
       {% for d in venta.detalles.all %}
-        <tr><td><code>{{ d.codigo_producto }}</code></td><td>{{ d.nombre_producto }}{% if not d.producto %} <span class="badge text-bg-light">eliminado</span>{% endif %}</td>
+        <tr><td><code>{{ d.codigo_producto }}</code></td>
+          <td>{{ d.nombre_producto }}{% if d.es_promocion %} <span class="badge text-bg-success">Promo</span>{% elif not d.producto %} <span class="badge text-bg-light">eliminado</span>{% endif %}</td>
           <td class="text-center">{{ d.cantidad }}</td><td class="text-end">{{ d.precio_unitario|pesos }}</td><td class="text-end">{{ d.subtotal|pesos }}</td></tr>
       {% endfor %}
     </tbody>
     <tfoot>
       <tr class="fw-bold"><td colspan="4" class="text-end">Total</td><td class="text-end">{{ venta.total|pesos }}</td></tr>
+      {% if venta.medio_pago == "efectivo" %}
       <tr><td colspan="4" class="text-end">Pagó con</td><td class="text-end">{{ venta.monto_recibido|pesos }}</td></tr>
       <tr><td colspan="4" class="text-end">Vuelto</td><td class="text-end">{{ venta.vuelto|pesos }}</td></tr>
+      {% endif %}
     </tfoot>
   </table>
 </div>

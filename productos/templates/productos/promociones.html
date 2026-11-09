@@ -1,0 +1,40 @@
+{% extends "base.html" %}{% load plata %}
+{% block titulo %}Promociones · Minimarket{% endblock %}
+{% block contenido %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div>
+    <a href="{% url 'panel_admin' %}" class="small">&larr; Panel</a>
+    <h1 class="h3 mb-0">Promociones</h1>
+  </div>
+  <a href="{% url 'productos:nueva_promocion' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Armar promoción</a>
+</div>
+<p class="text-muted">Elegí productos y poneles un precio especial. Las promociones activas aparecen en la pantalla de cobro, en el botón <strong>Promociones</strong>.</p>
+<div class="row g-3">
+  {% for promo in promociones %}
+  <div class="col-12 col-md-6 col-lg-4">
+    <div class="card h-100 {% if not promo.activa %}opacity-50{% endif %}">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <h2 class="h5 mb-1">{{ promo.nombre }}</h2>
+          {% if promo.activa %}<span class="badge text-bg-success">Activa</span>{% else %}<span class="badge text-bg-secondary">Inactiva</span>{% endif %}
+        </div>
+        <ul class="small text-muted ps-3 mb-2">
+          {% for i in promo.items.all %}<li>{{ i.cantidad }} × {{ i.producto.nombre }} <span class="text-nowrap">({{ i.producto.precio|pesos }} c/u)</span></li>{% endfor %}
+        </ul>
+        <div class="mt-auto">
+          <div class="small text-muted"><s>{{ promo.precio_normal|pesos }}</s>{% if promo.ahorro > 0 %} · ahorra {{ promo.ahorro|pesos }}{% endif %}</div>
+          <div class="fs-3 fw-bold text-primary">{{ promo.precio|pesos }}</div>
+          {% if promo.ahorro <= 0 %}<div class="small text-danger"><i class="bi bi-exclamation-triangle"></i> El precio de la promo no es más barato que comprar por separado.</div>{% endif %}
+          <div class="d-flex gap-1 mt-2">
+            <a href="{% url 'productos:editar_promocion' promo.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil"></i> Editar</a>
+            <a href="{% url 'productos:eliminar_promocion' promo.pk %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Eliminar</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col-12"><div class="card card-body text-center text-muted py-5">Todavía no armaste ninguna promoción.</div></div>
+  {% endfor %}
+</div>
+{% endblock %}

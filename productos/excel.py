@@ -1,8 +1,10 @@
 """
 Importar y exportar productos con Excel.
 
-Columnas de la planilla:  codigo | nombre | precio | categoria
+Columnas de la planilla:  codigo | nombre | precio | categoria | stock | costo
+(categoria, stock y costo son opcionales)
 - Si el código ya existe, se actualizan nombre, precio y categoría.
+- Stock y costo solo se cambian si la celda tiene un valor (si está vacía, quedan como estaban).
 - Si no existe, se crea el producto.
 - La importación NUNCA borra productos.
 - Si viene una categoría que no existe, se crea sola.
@@ -17,7 +19,7 @@ from openpyxl.styles import Font, PatternFill
 
 from .models import Categoria, Producto
 
-COLUMNAS = ["codigo", "nombre", "precio", "categoria"]
+COLUMNAS = ["codigo", "nombre", "precio", "categoria", "stock", "costo"]
 OBLIGATORIAS = ["codigo", "nombre", "precio"]
 
 
@@ -80,6 +82,33 @@ def limpiar_precio(valor):
     return precio
 
 
+def limpiar_stock(valor):
+    """Devuelve el stock como número entero, o None si la celda está vacía."""
+    if valor is None or (isinstance(valor, str) and not valor.strip()):
+        return None
+    try:
+        numero = Decimal(str(valor).strip().replace(",", "."))
+    except InvalidOperation:
+        raise ValueError(f"el stock '{valor}' no es un número")
+    if numero != numero.to_integral_value():
+        raise ValueError("el stock tiene que ser un número entero")
+    if abs(numero) > 1_000_000:
+        raise ValueError("el stock es demasiado grande")
+    return int(numero)
+
+
+def limpiar_costo(valor):
+    """Como el precio, pero opcional y puede ser cero."""
+    if valor is None or (isinstance(valor, str) and not valor.strip()):
+        return None
+    if valor == 0 or (isinstance(valor, str) and valor.strip() in ("0", "0,00", "0.00")):
+        return Decimal("0.00")
+    try:
+        return limpiar_precio(valor)
+    except ValueError as error:
+        raise ValueError(str(error).replace("precio", "costo"))
+
+
 # ---------- Importar ----------
 
 def importar_productos(archivo):
@@ -134,6 +163,8 @@ def importar_productos(archivo):
                 if len(nombre) > 150:
                     raise ValueError("el nombre es demasiado largo")
                 precio = limpiar_precio(celda(fila, "precio"))
+                stock = limpiar_stock(celda(fila, "stock"))
+                costo = limpiar_costo(celda(fila, "costo"))
                 if codigo in vistos:
                     raise ValueError(f"el código {codigo} está repetido (ya aparece en la fila {vistos[codigo]})")
             except ValueError as error:
@@ -149,10 +180,12 @@ def importar_productos(archivo):
                     categoria = Categoria.objects.create(nombre=nombre_categoria)
                     categorias[nombre_categoria.lower()] = categoria
 
-            _, creado = Producto.objects.update_or_create(
-                codigo=codigo,
-                defaults={"nombre": nombre, "precio": precio, "categoria": categoria},
-            )
+            datos = {"nombre": nombre, "precio": precio, "categoria": categoria}
+            if stock is not None:
+                datos["stock"] = stock
+            if costo is not None:
+                datos["precio_costo"] = costo
+            _, creado = Producto.objects.update_or_create(codigo=codigo, defaults=datos)
             resumen["creados" if creado else "actualizados"] += 1
 
     libro.close()
@@ -169,7 +202,7 @@ def _libro_con_encabezado():
     for celda in hoja[1]:
         celda.font = Font(bold=True, color="FFFFFF")
         celda.fill = PatternFill("solid", fgColor="064E3B")
-    for letra, ancho in zip("ABCD", (18, 40, 12, 20)):
+    for letra, ancho in zip("ABCDEF", (18, 40, 12, 20, 10, 12)):
         hoja.column_dimensions[letra].width = ancho
     hoja.freeze_panes = "A2"
     return libro, hoja
@@ -185,18 +218,21 @@ def exportar_productos(productos):
     """Excel con las mismas columnas que la importación, para editarlo y volver a subirlo."""
     libro, hoja = _libro_con_encabezado()
     for p in productos:
-        hoja.append([p.codigo, p.nombre, float(p.precio), p.categoria.nombre if p.categoria else ""])
+        hoja.append([p.codigo, p.nombre, float(p.precio), p.categoria.nombre if p.categoria else "",
+                     p.stock, float(p.precio_costo) if p.precio_costo is not None else None])
     for fila in hoja.iter_rows(min_row=2):
         fila[0].number_format = "@"      # código como texto: evita el 7.79E+12
         fila[2].number_format = "0.00"
+        fila[5].number_format = "0.00"
     return _a_bytes(libro)
 
 
 def planilla_modelo():
     """Planilla vacía con las columnas correctas y un ejemplo."""
     libro, hoja = _libro_con_encabezado()
-    hoja.append(["7790001234567", "Ejemplo: Gaseosa cola 500 ml (borrar esta fila)", 1500.00, "Bebidas"])
+    hoja.append(["7790001234567", "Ejemplo: Gaseosa cola 500 ml (borrar esta fila)", 1500.00, "Bebidas", 24, 1000.00])
     for fila in range(2, 1001):
         hoja.cell(row=fila, column=1).number_format = "@"   # columna código preparada como texto
         hoja.cell(row=fila, column=3).number_format = "0.00"
+        hoja.cell(row=fila, column=6).number_format = "0.00"
     return _a_bytes(libro)

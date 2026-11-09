@@ -3,7 +3,7 @@
 <div class="table-responsive">
   <table class="table table-hover align-middle bg-white">
     <thead class="table-light">
-      <tr><th>Código</th><th>Nombre</th><th>Categoría</th><th class="text-end">Precio</th><th></th></tr>
+      <tr><th>Código</th><th>Nombre</th><th>Categoría</th><th class="text-end">Stock</th><th class="text-end">Costo</th><th class="text-end">Precio</th><th class="text-end">Margen</th><th></th></tr>
     </thead>
     <tbody>
       {% for p in productos %}
@@ -11,14 +11,21 @@
         <td><code>{{ p.codigo }}</code></td>
         <td>{{ p.nombre }}</td>
         <td>{% if p.categoria %}<span class="badge text-bg-secondary">{{ p.categoria }}</span>{% else %}<span class="text-muted small">—</span>{% endif %}</td>
+        <td class="text-end">
+          {% if p.stock <= 0 %}<span class="badge text-bg-danger" title="Revisar el stock">{{ p.stock }}</span>
+          {% elif p.stock_bajo %}<span class="badge text-bg-warning" title="Stock bajo">{{ p.stock }}</span>
+          {% else %}{{ p.stock }}{% endif %}
+        </td>
+        <td class="text-end text-muted">{% if p.precio_costo is not None %}{{ p.precio_costo|pesos }}{% else %}—{% endif %}</td>
         <td class="text-end fw-bold">{{ p.precio|pesos }}</td>
+        <td class="text-end small">{% if p.margen is not None %}{{ p.margen }} %{% else %}<span class="text-muted">—</span>{% endif %}</td>
         <td class="text-end text-nowrap">
-          <a href="{% url 'productos:editar' p.pk %}" class="btn btn-outline-secondary btn-sm">Editar</a>
-          <a href="{% url 'productos:eliminar' p.pk %}" class="btn btn-outline-danger btn-sm">Eliminar</a>
+          <a href="{% url 'productos:editar' p.pk %}" class="btn btn-outline-secondary btn-sm" title="Editar"><i class="bi bi-pencil"></i></a>
+          <a href="{% url 'productos:eliminar' p.pk %}" class="btn btn-outline-danger btn-sm" title="Eliminar"><i class="bi bi-trash"></i></a>
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="5" class="text-muted text-center py-4">No hay productos{% if q %} que coincidan con «{{ q }}»{% endif %}.</td></tr>
+      <tr><td colspan="8" class="text-muted text-center py-4">No hay productos{% if q %} que coincidan con «{{ q }}»{% endif %}.</td></tr>
       {% endfor %}
     </tbody>
   </table>

@@ -137,8 +137,8 @@ class ExportarExcel(Base):
         r = self.client.get(reverse("productos:exportar"))
         self.assertIn("attachment", r["Content-Disposition"])
         hoja = load_workbook(BytesIO(r.content)).active
-        self.assertEqual([c.value for c in hoja[1]], ["codigo", "nombre", "precio", "categoria"])
-        self.assertEqual([c.value for c in hoja[2]], ["0012345", "Chicle", 150.5, "Golosinas"])
+        self.assertEqual([c.value for c in hoja[1]], ["codigo", "nombre", "precio", "categoria", "stock", "costo"])
+        self.assertEqual([c.value for c in hoja[2]], ["0012345", "Chicle", 150.5, "Golosinas", 0, None])
 
         # Ida y vuelta: se sube el mismo archivo y no cambia nada
         r = self.client.post(reverse("productos:importar"),
@@ -150,4 +150,4 @@ class ExportarExcel(Base):
     def test_planilla_modelo(self):
         r = self.client.get(reverse("productos:planilla_modelo"))
         hoja = load_workbook(BytesIO(r.content)).active
-        self.assertEqual([c.value for c in hoja[1]], ["codigo", "nombre", "precio", "categoria"])
+        self.assertEqual([c.value for c in hoja[1]], ["codigo", "nombre", "precio", "categoria", "stock", "costo"])

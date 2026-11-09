@@ -1,6 +1,8 @@
 from django import forms
 
-from .models import Categoria, Producto
+from django.forms import inlineformset_factory
+
+from .models import Categoria, Producto, Promocion, PromocionItem
 
 
 def aplicar_bootstrap(form):
@@ -17,13 +19,22 @@ class ProductoForm(forms.ModelForm):
 
     class Meta:
         model = Producto
-        fields = ("codigo", "nombre", "precio", "categoria")
+        fields = ("codigo", "nombre", "precio", "precio_costo", "stock", "categoria")
+        help_texts = {
+            "precio_costo": "Opcional. Solo lo ve el administrador.",
+            "stock": "Unidades disponibles. Se descuenta solo con cada venta.",
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["categoria"].empty_label = "Sin categoría"
         self.fields["precio"].widget.attrs.update({"step": "0.01", "min": "0.01"})
+        self.fields["precio_costo"].widget.attrs.update({"step": "0.01", "min": "0"})
+        self.fields["stock"].required = False
         aplicar_bootstrap(self)
+
+    def clean_stock(self):
+        return self.cleaned_data.get("stock") or 0
 
     def clean_codigo(self):
         return self.cleaned_data["codigo"].strip()
@@ -54,3 +65,36 @@ class ImportarExcelForm(forms.Form):
         if archivo.size > 5 * 1024 * 1024:
             raise forms.ValidationError("El archivo es demasiado grande (máximo 5 MB).")
         return archivo
+
+
+class PromocionForm(forms.ModelForm):
+    class Meta:
+        model = Promocion
+        fields = ("nombre", "precio", "activa")
+        widgets = {"nombre": forms.TextInput(attrs={"placeholder": "Ej.: Alfajor + gaseosa"})}
+        help_texts = {"activa": "Si está desactivada, no aparece en la pantalla de cobro."}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["precio"].widget.attrs.update({"step": "0.01", "min": "0.01"})
+        aplicar_bootstrap(self)
+        self.fields["activa"].widget.attrs["class"] = "form-check-input"
+
+
+class PromocionItemForm(forms.ModelForm):
+    class Meta:
+        model = PromocionItem
+        fields = ("producto", "cantidad")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["producto"].queryset = Producto.objects.order_by("nombre")
+        self.fields["producto"].label_from_instance = lambda p: f"{p.nombre} · ${p.precio}"
+        self.fields["cantidad"].widget.attrs.update({"min": "1"})
+        aplicar_bootstrap(self)
+
+
+ItemsPromocionFormSet = inlineformset_factory(
+    Promocion, PromocionItem, form=PromocionItemForm,
+    extra=0, min_num=1, validate_min=True, can_delete=True,
+)

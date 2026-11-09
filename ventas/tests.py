@@ -62,7 +62,7 @@ class CajaChica(Base):
 
     def test_cerrar_caja(self):
         caja = self.abrir_caja()
-        self.client.post(reverse("ventas:cerrar_caja"))
+        self.client.post(reverse("ventas:cerrar_caja"), {"efectivo_contado": "5000"})
         caja.refresh_from_db()
         self.assertIsNotNone(caja.cerrada_en)
         self.assertTemplateUsed(self.client.get(reverse("caja")), "ventas/abrir_caja.html")

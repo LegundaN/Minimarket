@@ -3,9 +3,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group, User
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from .forms import CajeroAltaForm, CajeroEdicionForm, ResetearPasswordForm
+from .forms import CajeroAltaForm, CajeroEdicionForm, MiMailForm, ResetearPasswordForm
 from .roles import CAJERO, es_administrador, es_cajero, solo_administrador
 
 
@@ -23,7 +24,26 @@ def inicio(request):
 
 @solo_administrador
 def panel_admin(request):
-    return render(request, "usuarios/panel_admin.html")
+    accesos = [
+        (reverse("productos:lista"), "bi-box-seam", "Productos", "Precios, costos, stock y planillas de Excel."),
+        (reverse("productos:promociones"), "bi-tags", "Promociones", "Armá combos de productos con un precio especial."),
+        (reverse("ventas:historial"), "bi-receipt", "Historial de cobros", "Ventas con fecha, hora y cajero. Descargá los movimientos del día."),
+        (reverse("ventas:cajas"), "bi-cash-stack", "Cajas", "Aperturas, cierres, faltantes y sobrantes de cada turno."),
+        (reverse("ventas:clientes"), "bi-person-vcard", "Clientes", "Clientes que piden comprobante con CUIT o DNI."),
+        (reverse("lista_cajeros"), "bi-people", "Cajeros", "Altas, mails, contraseñas y estado."),
+    ]
+    return render(request, "usuarios/panel_admin.html", {"accesos": accesos})
+
+
+@solo_administrador
+def mi_mail(request):
+    """El administrador carga su mail para poder recuperar su contraseña."""
+    form = MiMailForm(request.POST or None, instance=request.user)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Tu mail quedó guardado.")
+        return redirect("panel_admin")
+    return render(request, "usuarios/form_cajero.html", {"form": form, "titulo": "Mi mail", "volver": "panel_admin"})
 
 
 # ---------- HU02: gestión de cajeros (solo administrador) ----------

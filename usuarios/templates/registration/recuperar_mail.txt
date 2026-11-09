@@ -1,0 +1,11 @@
+{% autoescape off %}Hola {{ user.get_full_name|default:user.username }}:
+
+Recibimos un pedido para cambiar la contraseña de tu usuario «{{ user.username }}» en el sistema del Minimarket.
+
+Para elegir una contraseña nueva, entrá a este link:
+{{ protocol }}://{{ domain }}{% url 'password_reset_confirm' uidb64=uid token=token %}
+
+El link sirve una sola vez y vence en 2 horas.
+
+Si no pediste el cambio, ignorá este mail: tu contraseña sigue igual.
+{% endautoescape %}
