@@ -51,7 +51,7 @@ def movimientos_del_dia(dia):
                   .order_by("fecha_hora"))
     validas = [v for v in ventas if not v.anulada]
     movimientos = list(MovimientoCaja.objects.filter(fecha_hora__date=dia).select_related("caja__cajero")
-                       .order_by("fecha_hora"))
+                       .prefetch_related("items").order_by("fecha_hora"))
     cajas_abiertas = list(Caja.objects.filter(abierta_en__date=dia).select_related("cajero"))
     cajas_cerradas = list(Caja.objects.filter(cerrada_en__date=dia).select_related("cajero"))
 
@@ -118,12 +118,13 @@ def movimientos_del_dia(dia):
 
     # ---------- 4. Movimientos de caja ----------
     hoja = libro.create_sheet("Movimientos de caja")
-    _encabezado(hoja, ["Hora", "Cajero", "Tipo", "Detalle", "Monto"], (8, 22, 18, 44, 14))
+    _encabezado(hoja, ["Hora", "Cajero", "Tipo", "Detalle", "Monto"], (8, 22, 18, 60, 14))
     eventos = []
     for c in cajas_abiertas:
         eventos.append((c.abierta_en, _nombre(c.cajero), "Apertura de caja", "Fondo inicial", c.fondo_inicial))
     for m in movimientos:
-        eventos.append((m.fecha_hora, _nombre(m.caja.cajero), m.get_tipo_display(), m.motivo,
+        detalle = f"{m.motivo} · Entró: {m.detalle_productos}" if m.detalle_productos else m.motivo
+        eventos.append((m.fecha_hora, _nombre(m.caja.cajero), m.get_tipo_display(), detalle,
                         m.monto if m.tipo == MovimientoCaja.INGRESO else -m.monto))
     for c in cajas_cerradas:
         detalle = f"Esperado ${c.efectivo_esperado} · Contado ${c.efectivo_contado}" if c.efectivo_contado is not None \

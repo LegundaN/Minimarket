@@ -7,20 +7,21 @@
 
 ## Sprint 2 — Productos, cobro y caja chica
 - **Productos** (administrador): listado con buscador rápido y filtro por categoría, carga manual, edición, eliminación, **importar Excel** (`codigo | nombre | precio | categoria`) y **descargar Excel** con los datos actuales.
-- **Cobro** (cajero): lector de código de barras o búsqueda por nombre, carrito, "¿Con cuánto pagó?" y vuelto, con botones de billetes (prueba, en `ventas/templates/ventas/_billetes.html`).
+- **Cobro** (cajero): lector de código de barras o búsqueda por nombre (las sugerencias aparecen mientras se escribe), carrito, "¿Con cuánto pagó?" y vuelto, con botones de billetes (prueba, en `ventas/templates/ventas/_billetes.html`).
 - **Caja chica** (cajero): apertura con fondo inicial, ingresos y egresos, efectivo esperado y cierre.
 - **Consultar precio** (cajero, solo lectura).
 - **Historial de cobros** y **Cajas** (administrador): cada cobro con fecha, hora y cajero.
 
 ## Sprint 3 — Stock y costos
 - Cada producto tiene **stock** y **precio de costo** (opcionales). El listado muestra el **margen** y avisa stock bajo (≤ 5) o sin stock.
-- Cada venta **descuenta stock**. Si no hay, la venta no se frena: el cajero ve un aviso y el stock queda en negativo para que el administrador lo corrija.
+- Cada venta **descuenta stock** y el stock **nunca baja de 0**: la caja no deja vender más unidades de las que hay (tampoco promos sin stock).
+- Los **egresos de caja chica son compras de mercadería**: se cargan los productos que entraron y sus cantidades (suman stock) y el monto total del ticket.
 - El Excel de importación/exportación suma las columnas `stock` y `costo` (si se dejan vacías, no se pisa lo que había).
 - El cajero **nunca ve el costo**.
 
 ## Sprint 4 — Clientes, anulaciones, promociones y cierre del día
 - **Medio de pago**: efectivo o tarjeta. La tarjeta no entra a la caja chica.
-- **Clientes con CUIT/DNI**: por defecto es consumidor final; botón "Cliente con CUIT/DNI" para buscarlo y, si no existe, cargarlo en una ventanita. El administrador ve y edita los clientes en **Clientes**.
+- **Clientes con CUIT/DNI**: por defecto es consumidor final; botón "Cliente con CUIT/DNI": mientras se escribe aparecen los clientes cuyo documento empieza con esos números (o por nombre) y, si no existe, cargarlo en una ventanita. El administrador ve y edita los clientes en **Clientes**.
 - **Anular venta** (motivo obligatorio): el cajero anula sus ventas mientras su caja está abierta; el administrador cualquier venta de una caja abierta. Repone el stock y deja de sumar en la caja. En el historial queda marcada como anulada.
 - **Promociones** (administrador): se arma un combo eligiendo productos y cantidades y se le pone un precio. El cajero las agrega desde el botón "Promociones" en el cobro. Un producto que está en una promo no se puede borrar.
 - **Cierre del día**: al cerrar, el cajero carga el efectivo contado. Se ve el total en efectivo, el total con tarjeta, la cantidad de operaciones y el **faltante o sobrante**, que queda registrado a nombre del cajero (pantalla **Cajas** del administrador).

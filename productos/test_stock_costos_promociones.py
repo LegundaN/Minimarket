@@ -59,13 +59,14 @@ class StockYCostos(Base):
         Producto.objects.create(codigo="10", nombre="Viejo", precio=10, stock=7, precio_costo=5)
         archivo = excel([("10", "Viejo", 12, "", "", ""),       # vacíos: quedan como estaban
                          ("11", "Nuevo", 20, "", 30, "15,50"),
-                         ("12", "Malo", 20, "", "dos", "")],
+                         ("12", "Malo", 20, "", "dos", ""),
+                         ("13", "Negativo", 20, "", -4, "")],
                         ["codigo", "nombre", "precio", "categoria", "stock", "costo"])
         r = self.client.post(reverse("productos:importar"), {"archivo": archivo})
         viejo, nuevo = Producto.objects.get(codigo="10"), Producto.objects.get(codigo="11")
         self.assertEqual((viejo.precio, viejo.stock, viejo.precio_costo), (Decimal("12"), 7, Decimal("5")))
         self.assertEqual((nuevo.stock, nuevo.precio_costo), (30, Decimal("15.50")))
-        self.assertEqual([f for f, _ in r.context["resumen"]["errores"]], [4])
+        self.assertEqual([f for f, _ in r.context["resumen"]["errores"]], [4, 5])
 
 
 class Promociones(Base):

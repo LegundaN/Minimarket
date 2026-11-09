@@ -1,8 +1,10 @@
+import json
 from decimal import Decimal
 
 from django import forms
 
 from productos.forms import aplicar_bootstrap
+from productos.models import Producto
 
 from .models import Cliente, MovimientoCaja
 
@@ -19,17 +21,50 @@ class AbrirCajaForm(forms.Form):
 
 
 class MovimientoForm(forms.ModelForm):
+    """Ingreso: solo plata. Egreso: es una compra de mercadería, así que además del monto total
+    (a mano, el del ticket) lleva los productos que entraron y sus cantidades, que suman stock.
+    Los productos llegan desde la pantalla como JSON: [{"id": 3, "cantidad": 24}, ...]"""
+    productos = forms.CharField(required=False, widget=forms.HiddenInput)
+
     class Meta:
         model = MovimientoCaja
         fields = ("tipo", "monto", "motivo")
+        labels = {"monto": "Monto total", "motivo": "Motivo / proveedor"}
         widgets = {
             "monto": forms.NumberInput(attrs={"step": "0.01", "min": "0.01"}),
-            "motivo": forms.TextInput(attrs={"placeholder": "Ej.: pago al proveedor de gaseosas"}),
+            "motivo": forms.TextInput(attrs={"placeholder": "Ej.: proveedor de gaseosas"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         aplicar_bootstrap(self)
+        self.items = []  # [(producto, cantidad)] ya validados
+
+    def clean_productos(self):
+        texto = self.cleaned_data.get("productos") or "[]"
+        try:
+            lista = json.loads(texto)
+            pedidos = {}
+            for item in lista:
+                pk, cantidad = int(item["id"]), int(item["cantidad"])
+                if not 1 <= cantidad <= 100000:
+                    raise forms.ValidationError("Las cantidades tienen que ser de 1 en adelante.")
+                pedidos[pk] = pedidos.get(pk, 0) + cantidad
+        except (ValueError, KeyError, TypeError):
+            raise forms.ValidationError("La lista de productos no es válida.")
+        productos = {p.pk: p for p in Producto.objects.filter(pk__in=pedidos)}
+        if len(productos) != len(pedidos):
+            raise forms.ValidationError("Algún producto ya no existe. Recargá la página.")
+        self.items = [(productos[pk], cant) for pk, cant in pedidos.items()]
+        return texto
+
+    def clean(self):
+        datos = super().clean()
+        if datos.get("tipo") == MovimientoCaja.EGRESO and not self.items and "productos" not in self.errors:
+            self.add_error("productos", "Agregá los productos que entraron con esta compra.")
+        if datos.get("tipo") == MovimientoCaja.INGRESO:
+            self.items = []  # un ingreso no toca el stock
+        return datos
 
     def clean_monto(self):
         monto = self.cleaned_data["monto"]

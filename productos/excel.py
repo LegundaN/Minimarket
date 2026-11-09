@@ -92,7 +92,9 @@ def limpiar_stock(valor):
         raise ValueError(f"el stock '{valor}' no es un número")
     if numero != numero.to_integral_value():
         raise ValueError("el stock tiene que ser un número entero")
-    if abs(numero) > 1_000_000:
+    if numero < 0:
+        raise ValueError("el stock no puede ser negativo")
+    if numero > 1_000_000:
         raise ValueError("el stock es demasiado grande")
     return int(numero)
 

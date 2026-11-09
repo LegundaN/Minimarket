@@ -105,7 +105,8 @@ class Caja(models.Model):
 
 
 class MovimientoCaja(models.Model):
-    """Ingresos o egresos de efectivo que no son ventas (ej.: pago a un proveedor)."""
+    """Ingresos o egresos de efectivo que no son ventas.
+    Los egresos son compras de mercadería: llevan los productos que entraron y suman stock."""
     INGRESO = "ingreso"
     EGRESO = "egreso"
     TIPOS = [(INGRESO, "Ingreso"), (EGRESO, "Egreso")]
@@ -118,6 +119,25 @@ class MovimientoCaja(models.Model):
 
     class Meta:
         ordering = ["-fecha_hora"]
+
+    @property
+    def detalle_productos(self):
+        """Ej.: «Coca-Cola 500 ml x 24, Alfajor x 12»."""
+        return ", ".join(f"{i.nombre_producto} x {i.cantidad}" for i in self.items.all())
+
+
+class MovimientoItem(models.Model):
+    """Productos que entraron con un egreso (compra de mercadería). Cada uno suma stock."""
+    movimiento = models.ForeignKey(MovimientoCaja, on_delete=models.CASCADE, related_name="items")
+    # SET_NULL + copia del nombre: si después se borra el producto, el registro de la compra queda
+    producto = models.ForeignKey("productos.Producto", on_delete=models.SET_NULL, null=True,
+                                 related_name="compras")
+    codigo_producto = models.CharField(max_length=50)
+    nombre_producto = models.CharField(max_length=150)
+    cantidad = models.PositiveIntegerField()
+
+    def __str__(self):
+        return f"{self.nombre_producto} x {self.cantidad}"
 
 
 class Venta(models.Model):

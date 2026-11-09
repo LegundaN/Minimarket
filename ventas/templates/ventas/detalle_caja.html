@@ -14,7 +14,7 @@
       <ul class="list-group list-group-flush">
         {% for m in caja.movimientos.all %}
           <li class="list-group-item d-flex justify-content-between">
-            <span><span class="badge {% if m.tipo == 'egreso' %}text-bg-danger{% else %}text-bg-success{% endif %}">{{ m.get_tipo_display }}</span> {{ m.motivo }} <span class="small text-muted">· {{ m.fecha_hora|date:"H:i" }}</span></span>
+            <span><span class="badge {% if m.tipo == 'egreso' %}text-bg-danger{% else %}text-bg-success{% endif %}">{{ m.get_tipo_display }}</span> {{ m.motivo }} <span class="small text-muted">· {{ m.fecha_hora|date:"H:i" }}</span>{% if m.detalle_productos %}<div class="small text-muted"><i class="bi bi-box-seam"></i> {{ m.detalle_productos }}</div>{% endif %}</span>
             <strong>{% if m.tipo == 'egreso' %}−{% else %}+{% endif %} {{ m.monto|pesos }}</strong>
           </li>
         {% empty %}<li class="list-group-item text-muted">Sin movimientos.</li>{% endfor %}

@@ -22,8 +22,8 @@ class Base(TestCase):
         User.objects.all().delete()
         self.admin = crear_usuario("admin_test", "Administrador")
         self.cajero = crear_usuario("cajero_test", "Cajero")
-        self.coca = Producto.objects.create(codigo="7790001", nombre="Coca 500", precio=Decimal("1500"))
-        self.alfajor = Producto.objects.create(codigo="7790002", nombre="Alfajor", precio=Decimal("800.50"))
+        self.coca = Producto.objects.create(codigo="7790001", nombre="Coca 500", precio=Decimal("1500"), stock=50)
+        self.alfajor = Producto.objects.create(codigo="7790002", nombre="Alfajor", precio=Decimal("800.50"), stock=50)
         self.client.force_login(self.cajero)
 
     def abrir_caja(self, fondo="5000"):
@@ -55,7 +55,8 @@ class CajaChica(Base):
     def test_efectivo_esperado(self):
         caja = self.abrir_caja("5000")
         self.cobrar([{"id": self.coca.pk, "cantidad": 2}], "3000")                     # +3000
-        self.client.post(reverse("ventas:caja_chica"), {"tipo": "egreso", "monto": "1000", "motivo": "Proveedor"})
+        self.client.post(reverse("ventas:caja_chica"), {"tipo": "egreso", "monto": "1000", "motivo": "Proveedor",
+                                                         "productos": json.dumps([{"id": self.coca.pk, "cantidad": 1}])})
         self.client.post(reverse("ventas:caja_chica"), {"tipo": "ingreso", "monto": "200", "motivo": "Cambio"})
         self.assertEqual(caja.efectivo_esperado, Decimal("7200"))  # 5000 + 3000 - 1000 + 200
         self.assertEqual(MovimientoCaja.objects.count(), 2)

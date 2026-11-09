@@ -8,7 +8,7 @@ from django.core.exceptions import PermissionDenied
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Count, F, Q, Sum
+from django.db.models import Case, Count, F, IntegerField, Q, Sum, Value, When
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -20,7 +20,7 @@ from usuarios.roles import CAJERO, es_administrador, es_cajero, solo_administrad
 from .excel import movimientos_del_dia
 from .forms import (AbrirCajaForm, AnularVentaForm, CerrarCajaForm, ClienteForm, MovimientoForm,
                     limpiar_documento)
-from .models import Caja, Cliente, DetalleVenta, Venta
+from .models import Caja, Cliente, DetalleVenta, MovimientoItem, Venta
 
 TIPO_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
@@ -42,10 +42,24 @@ def cliente_a_dict(c):
 def promociones_activas():
     lista = []
     for promo in Promocion.objects.filter(activa=True).prefetch_related("items__producto"):
-        if promo.items.exists():
+        items = list(promo.items.all())
+        if items:
+            # Cuántas promos se pueden armar con el stock actual
+            disponibles = min(i.producto.stock // i.cantidad for i in items)
             lista.append({"id": promo.pk, "nombre": promo.nombre, "precio": str(promo.precio),
-                          "detalle": promo.descripcion, "precio_normal": str(promo.precio_normal)})
+                          "detalle": promo.descripcion, "precio_normal": str(promo.precio_normal),
+                          "disponibles": disponibles})
     return lista
+
+
+def buscar_productos_por_texto(q, limite=15):
+    """Busca por nombre o código y muestra primero los que EMPIEZAN con lo escrito
+    (si escribís «alf», primero los alfajores)."""
+    return (Producto.objects.select_related("categoria")
+            .filter(Q(nombre__icontains=q) | Q(codigo__icontains=q))
+            .annotate(orden=Case(When(Q(nombre__istartswith=q) | Q(codigo__startswith=q), then=Value(0)),
+                                 default=Value(1), output_field=IntegerField()))
+            .order_by("orden", "nombre")[:limite])
 
 
 # =====================================================================
@@ -78,7 +92,8 @@ def abrir_caja(request):
 def buscar_producto(request):
     """Lo usa la pantalla de cobro:
     ?codigo=XXX -> busca el código exacto (lector de código de barras)
-    ?q=texto    -> busca por nombre o parte del código (hasta 15 resultados)"""
+    ?q=texto    -> busca por nombre o parte del código (hasta 15 resultados). La pantalla lo va
+                   llamando mientras se escribe, sin apretar Enter."""
     codigo = request.GET.get("codigo", "").strip()
     if codigo:
         producto = Producto.objects.select_related("categoria").filter(codigo=codigo).first()
@@ -89,14 +104,24 @@ def buscar_producto(request):
     q = request.GET.get("q", "").strip()
     if len(q) < 2:
         return JsonResponse({"productos": []})
-    productos = Producto.objects.select_related("categoria").filter(
-        Q(nombre__icontains=q) | Q(codigo__icontains=q))[:15]
-    return JsonResponse({"productos": [producto_a_dict(p) for p in productos]})
+    return JsonResponse({"productos": [producto_a_dict(p) for p in buscar_productos_por_texto(q)]})
 
 
 @solo_cajero
 def buscar_cliente(request):
-    """Sprint 4 - Busca un cliente por CUIT o DNI exacto."""
+    """Sprint 4 - Busca clientes.
+    ?q=38          -> sugerencias mientras se escribe: documentos que EMPIEZAN con esos números,
+                      o nombres que contienen el texto (hasta 10)
+    ?documento=XXX -> CUIT o DNI exacto"""
+    if "q" in request.GET:
+        texto = request.GET["q"].strip()
+        numeros = limpiar_documento(texto)
+        if any(c.isalpha() for c in texto):          # escribió letras: busca por nombre
+            filtro = Q(nombre__icontains=texto) if len(texto) >= 2 else None
+        else:                                         # escribió números: DNI/CUIT que empiezan así
+            filtro = Q(documento__startswith=numeros) if len(numeros) >= 2 else None
+        clientes = Cliente.objects.filter(filtro).order_by("documento")[:10] if filtro else []
+        return JsonResponse({"clientes": [cliente_a_dict(c) for c in clientes]})
     documento = limpiar_documento(request.GET.get("documento"))
     cliente = Cliente.objects.filter(documento=documento).first() if documento else None
     if cliente is None:
@@ -175,25 +200,35 @@ def confirmar_venta(request):
     if monto_recibido < total:
         return JsonResponse({"error": f"El monto recibido no alcanza. Total: ${total}."}, status=400)
 
+    # Cuánto stock hace falta de cada producto (sueltos + los que vienen dentro de las promos)
+    descontar = dict(cant_productos)
+    for pk, cant in cant_promos.items():
+        for item in promos[pk].items.all():
+            descontar[item.producto_id] = descontar.get(item.producto_id, 0) + item.cantidad * cant
+
     with transaction.atomic():
+        # El stock nunca baja de 0: se bloquean las filas y se controla antes de vender
+        en_stock = {p.pk: p for p in Producto.objects.select_for_update().filter(pk__in=descontar)}
+        faltan = [f"«{en_stock[pk].nombre}» (hay {en_stock[pk].stock}, pediste {cant})"
+                  for pk, cant in descontar.items() if en_stock[pk].stock < cant]
+        if faltan:
+            return JsonResponse({"error": "No hay stock suficiente de " + ", ".join(faltan) + "."}, status=400)
+
         venta = Venta.objects.create(caja=caja, cajero=request.user, cliente=cliente, medio_pago=medio_pago,
                                      total=total, monto_recibido=monto_recibido, vuelto=monto_recibido - total)
-        detalles, descontar = [], {}
+        detalles = []
         for pk, cant in cant_productos.items():
             p = productos[pk]
             detalles.append(DetalleVenta(venta=venta, producto=p, codigo_producto=p.codigo, nombre_producto=p.nombre,
                                          cantidad=cant, precio_unitario=p.precio))
-            descontar[pk] = descontar.get(pk, 0) + cant
         for pk, cant in cant_promos.items():
             promo = promos[pk]
             componentes = [{"producto_id": i.producto_id, "cantidad": i.cantidad} for i in promo.items.all()]
             detalles.append(DetalleVenta(venta=venta, promocion=promo, codigo_producto="PROMO",
                                          nombre_producto=f"Promo: {promo.nombre}", cantidad=cant,
                                          precio_unitario=promo.precio, componentes=componentes))
-            for comp in componentes:
-                descontar[comp["producto_id"]] = descontar.get(comp["producto_id"], 0) + comp["cantidad"] * cant
         DetalleVenta.objects.bulk_create(detalles)
-        # Sprint 3 - HU06: se descuenta el stock (la venta nunca se frena por falta de stock)
+        # Sprint 3 - HU06: se descuenta el stock (ya se controló que alcanza)
         for pk, cant in descontar.items():
             Producto.objects.filter(pk=pk).update(stock=F("stock") - cant)
 
@@ -207,8 +242,7 @@ def consultar_precio(request):
     q = request.GET.get("q", "").strip()
     productos = []
     if q:
-        productos = Producto.objects.select_related("categoria").filter(
-            Q(nombre__icontains=q) | Q(codigo__icontains=q))[:50]
+        productos = buscar_productos_por_texto(q, limite=50)
     return render(request, "ventas/consultar_precio.html", {"q": q, "productos": productos})
 
 
@@ -219,10 +253,20 @@ def caja_chica(request):
         return redirect("caja")
     form = MovimientoForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        movimiento = form.save(commit=False)
-        movimiento.caja = caja
-        movimiento.save()
-        messages.success(request, f"{movimiento.get_tipo_display()} de ${movimiento.monto} registrado.")
+        with transaction.atomic():
+            movimiento = form.save(commit=False)
+            movimiento.caja = caja
+            movimiento.save()
+            # Egreso = compra de mercadería: los productos que entraron suman stock
+            MovimientoItem.objects.bulk_create([
+                MovimientoItem(movimiento=movimiento, producto=p, codigo_producto=p.codigo,
+                               nombre_producto=p.nombre, cantidad=cant) for p, cant in form.items])
+            for p, cant in form.items:
+                Producto.objects.filter(pk=p.pk).update(stock=F("stock") + cant)
+        texto = f"{movimiento.get_tipo_display()} de ${movimiento.monto} registrado."
+        if form.items:
+            texto += f" Se sumó al stock: {movimiento.detalle_productos}."
+        messages.success(request, texto)
         return redirect("ventas:caja_chica")
     return render(request, "ventas/caja_chica.html", {
         "caja": caja, "form": form, "form_cierre": CerrarCajaForm(),

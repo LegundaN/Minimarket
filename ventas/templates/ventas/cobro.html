@@ -4,8 +4,10 @@
 <style>
   .total-grande { font-size: 2.6rem; font-weight: 700; }
   .vuelto-grande { font-size: 2.2rem; font-weight: 700; }
-  #resultados-busqueda .list-group-item, #lista-promos .list-group-item { cursor: pointer; }
-  #resultados-busqueda:empty { display: none; }
+  #resultados-busqueda .list-group-item, #lista-promos .list-group-item, #cli-sugerencias .list-group-item { cursor: pointer; }
+  #resultados-busqueda:empty, #cli-sugerencias:empty { display: none; }
+  #resultados-busqueda { max-height: 22rem; overflow-y: auto; }
+  #resultados-busqueda .list-group-item.active .text-muted { color: rgba(255,255,255,.8) !important; }
   .tabla-carrito td { vertical-align: middle; }
   .cantidad { width: 4.5rem; }
 </style>
@@ -23,7 +25,7 @@
   {# ---------- Columna izquierda: lector y carrito ---------- #}
   <div class="col-12 col-lg-7">
     <div class="card card-body mb-3">
-      <label for="lector" class="form-label fw-semibold">Escaneá el código o escribí el nombre y apretá Enter</label>
+      <label for="lector" class="form-label fw-semibold">Escaneá el código o empezá a escribir el nombre</label>
       <div class="input-group input-group-lg">
         <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
         <input type="text" id="lector" class="form-control" autocomplete="off" autofocus
@@ -109,11 +111,12 @@
       <div class="modal-header"><h2 class="modal-title h5" id="titulo-cliente"><i class="bi bi-person-vcard"></i> Cliente con CUIT/DNI</h2>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
       <div class="modal-body">
-        <label for="cli-documento" class="form-label">CUIT o DNI</label>
+        <label for="cli-documento" class="form-label">CUIT o DNI (o el nombre)</label>
         <div class="input-group mb-2">
-          <input type="text" id="cli-documento" class="form-control form-control-lg" inputmode="numeric" placeholder="Solo números">
-          <button class="btn btn-primary" type="button" id="cli-buscar"><i class="bi bi-search"></i> Buscar</button>
+          <input type="text" id="cli-documento" class="form-control form-control-lg" autocomplete="off" placeholder="Empezá a escribir: 38… o el nombre">
+          <button class="btn btn-primary" type="button" id="cli-buscar" title="Cargar como cliente nuevo"><i class="bi bi-search"></i> Buscar</button>
         </div>
+        <div id="cli-sugerencias" class="list-group mb-2"></div>
         <div id="cli-mensaje" class="small mb-2"></div>
         <div id="cli-nuevo" class="d-none">
           <div class="alert alert-info py-2 small">Es un cliente nuevo: cargalo y queda guardado para la próxima.</div>
@@ -170,22 +173,29 @@
 
   const totalCentavos = () => carrito.reduce((suma, item) => suma + item.precio * item.cantidad, 0);
 
+  // El stock nunca baja de 0: no se puede agregar más de lo que hay (el servidor lo vuelve a controlar)
+  const avisoStock = (item) => mostrarAviso(item.stock <= 0
+    ? `<i class="bi bi-exclamation-triangle"></i> «${escapar(item.nombre)}» no tiene stock. Avisale al administrador.`
+    : `<i class="bi bi-exclamation-triangle"></i> De «${escapar(item.nombre)}» quedan solo ${item.stock}.`, "warning", 5);
+
   function agregar(item) {
     const existente = carrito.find((i) => i.tipo === item.tipo && i.id === item.id);
-    if (existente) {
+    const enCarrito = existente ? existente.cantidad : 0;
+    if (enCarrito + 1 > item.stock) {
+      avisoStock(item);
+    } else if (existente) {
       existente.cantidad += 1;          // si ya estaba, suma cantidad
+      existente.stock = item.stock;
     } else {
       carrito.push({ ...item, cantidad: 1 });
     }
-    resultados.innerHTML = "";
-    lector.value = "";
+    limpiarBusqueda();
     dibujar();
     lector.focus();
   }
 
   function agregarProducto(p) {
-    agregar({ tipo: "producto", id: p.id, codigo: p.codigo, nombre: p.nombre, precio: aCentavos(p.precio) });
-    if (p.stock <= 0) mostrarAviso(`<i class="bi bi-exclamation-triangle"></i> «${escapar(p.nombre)}» figura sin stock. Avisale al administrador.`, "warning", 4);
+    agregar({ tipo: "producto", id: p.id, codigo: p.codigo, nombre: p.nombre, precio: aCentavos(p.precio), stock: p.stock });
   }
 
   function dibujar() {
@@ -205,9 +215,14 @@
       fila.querySelector(".small").textContent = item.tipo === "promo" ? "Promoción" : item.codigo;
       const inputCantidad = fila.querySelector("input");
       inputCantidad.value = item.cantidad;
+      inputCantidad.max = Math.min(999, item.stock);
       inputCantidad.addEventListener("change", () => {
         const n = parseInt(inputCantidad.value, 10);
         item.cantidad = n >= 1 && n <= 999 ? n : 1;
+        if (item.cantidad > item.stock) {
+          item.cantidad = Math.max(1, item.stock);
+          avisoStock(item);
+        }
         dibujar();
       });
       fila.querySelector("button").addEventListener("click", () => {
@@ -261,41 +276,90 @@
     },
   };
 
-  async function buscar(texto) {
-    // 1) Primero probamos como código de barras exacto
-    let respuesta = await fetch(`${URL_BUSCAR}?codigo=${encodeURIComponent(texto)}`);
-    if (respuesta.ok) {
-      agregarProducto((await respuesta.json()).producto);
-      return;
-    }
-    // 2) Si no es un código, buscamos por nombre y mostramos opciones
-    respuesta = await fetch(`${URL_BUSCAR}?q=${encodeURIComponent(texto)}`);
-    const { productos } = await respuesta.json();
+  // ---------- Búsqueda mientras se escribe (sin apretar Enter) ----------
+  let sugerencias = [];      // productos que se están mostrando
+  let marcada = -1;          // cuál está resaltada con las flechas
+  let esperaBusqueda = null;
+  let numeroBusqueda = 0;    // para ignorar respuestas viejas si se escribe rápido
+
+  function limpiarBusqueda() {
+    clearTimeout(esperaBusqueda);
+    numeroBusqueda++;
+    sugerencias = []; marcada = -1;
     resultados.innerHTML = "";
-    if (!productos || productos.length === 0) {
-      mostrarAviso(`No se encontró ningún producto con «${escapar(texto)}».`, "warning");
-      lector.select();
-      return;
-    }
-    productos.forEach((p) => {
+    lector.value = "";
+  }
+
+  function dibujarSugerencias() {
+    resultados.innerHTML = "";
+    sugerencias.forEach((p, i) => {
       const opcion = document.createElement("button");
       opcion.type = "button";
-      opcion.className = "list-group-item list-group-item-action d-flex justify-content-between";
-      opcion.innerHTML = "<span></span><strong></strong>";
-      opcion.querySelector("span").textContent = `${p.nombre} (${p.codigo})`;
+      const sinStock = p.stock <= 0;
+      opcion.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-2"
+        + (i === marcada ? " active" : "") + (sinStock ? " disabled" : "");
+      opcion.innerHTML = '<span><span class="nombre"></span> <span class="small text-muted"></span></span><span class="text-nowrap"><span class="badge me-2"></span><strong></strong></span>';
+      opcion.querySelector(".nombre").textContent = p.nombre;
+      opcion.querySelector(".text-muted").textContent = p.codigo;
+      const badge = opcion.querySelector(".badge");
+      badge.textContent = sinStock ? "Sin stock" : `Stock ${p.stock}`;
+      badge.className = "badge me-2 " + (sinStock ? "text-bg-danger" : p.stock <= 5 ? "text-bg-warning" : "text-bg-light");
       opcion.querySelector("strong").textContent = pesos(aCentavos(p.precio));
       opcion.addEventListener("click", () => agregarProducto(p));
       resultados.appendChild(opcion);
     });
+    const activa = resultados.querySelector(".active");
+    if (activa) activa.scrollIntoView({ block: "nearest" });
+  }
+
+  async function sugerir(texto) {
+    const numero = ++numeroBusqueda;
+    const respuesta = await fetch(`${URL_BUSCAR}?q=${encodeURIComponent(texto)}`);
+    const { productos } = await respuesta.json();
+    if (numero !== numeroBusqueda) return;   // llegó tarde: ya se escribió otra cosa
+    sugerencias = productos || [];
+    marcada = -1;
+    dibujarSugerencias();
+    if (sugerencias.length === 0) {
+      resultados.innerHTML = '<div class="list-group-item text-muted small">No hay productos con «' + escapar(texto) + '».</div>';
+    }
+  }
+
+  lector.addEventListener("input", () => {
+    clearTimeout(esperaBusqueda);
+    const texto = lector.value.trim();
+    if (texto.length < 2) { numeroBusqueda++; sugerencias = []; resultados.innerHTML = ""; return; }
+    esperaBusqueda = setTimeout(() => sugerir(texto), 200);
+  });
+
+  // Enter: lo usa el lector de código de barras (manda el código y un Enter), o para elegir la
+  // sugerencia marcada con las flechas.
+  async function enter(texto) {
+    if (marcada >= 0 && sugerencias[marcada]) { agregarProducto(sugerencias[marcada]); return; }
+    clearTimeout(esperaBusqueda);
+    const respuesta = await fetch(`${URL_BUSCAR}?codigo=${encodeURIComponent(texto)}`);
+    if (respuesta.ok) { agregarProducto((await respuesta.json()).producto); return; }
+    const disponibles = sugerencias.filter((p) => p.stock > 0);
+    if (disponibles.length === 1) { agregarProducto(disponibles[0]); return; }
+    if (sugerencias.length === 0) {
+      mostrarAviso(`No se encontró ningún producto con «${escapar(texto)}».`, "warning");
+      lector.select();
+    }
   }
 
   lector.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       const texto = lector.value.trim();
-      if (texto) buscar(texto);
+      if (texto) enter(texto);
+    } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && sugerencias.length) {
+      e.preventDefault();
+      const paso = e.key === "ArrowDown" ? 1 : -1;
+      marcada = (marcada + paso + sugerencias.length) % sugerencias.length;
+      dibujarSugerencias();
+    } else if (e.key === "Escape") {
+      limpiarBusqueda();
     }
-    if (e.key === "Escape") { resultados.innerHTML = ""; lector.value = ""; }
   });
 
   montoRecibido.addEventListener("input", actualizarTotales);
@@ -315,8 +379,13 @@
     opcion.querySelector("strong").textContent = promo.nombre;
     opcion.querySelector(".text-primary").textContent = pesos(aCentavos(promo.precio));
     opcion.querySelector(".small").textContent = promo.detalle;
+    if (promo.disponibles <= 0) {
+      opcion.classList.add("disabled");
+      opcion.querySelector(".small").textContent += " · Sin stock";
+    }
     opcion.addEventListener("click", () => {
-      agregar({ tipo: "promo", id: promo.id, codigo: "PROMO", nombre: `Promo: ${promo.nombre}`, precio: aCentavos(promo.precio) });
+      agregar({ tipo: "promo", id: promo.id, codigo: "PROMO", nombre: `Promo: ${promo.nombre}`,
+                precio: aCentavos(promo.precio), stock: promo.disponibles });
       bootstrap.Modal.getOrCreateInstance(modalPromos).hide();
     });
     listaPromos.appendChild(opcion);
@@ -344,6 +413,39 @@
   }
   document.getElementById("quitar-cliente").addEventListener("click", quitarCliente);
 
+  // Sugerencias mientras se escribe: si ponés 38, aparecen todos los DNI/CUIT que empiezan con 38
+  const cliSugerencias = document.getElementById("cli-sugerencias");
+  let esperaCliente = null, numeroCliente = 0;
+  cliDocumento.addEventListener("input", () => {
+    clearTimeout(esperaCliente);
+    cliNuevo.classList.add("d-none");
+    cliMensaje.textContent = "";
+    const texto = cliDocumento.value.trim();
+    if (texto.replace(/\W/g, "").length < 2) { numeroCliente++; cliSugerencias.innerHTML = ""; return; }
+    esperaCliente = setTimeout(async () => {
+      const numero = ++numeroCliente;
+      const respuesta = await fetch(`${URL_BUSCAR_CLIENTE}?q=${encodeURIComponent(texto)}`);
+      const { clientes } = await respuesta.json();
+      if (numero !== numeroCliente) return;
+      cliSugerencias.innerHTML = "";
+      clientes.forEach((c) => {
+        const opcion = document.createElement("button");
+        opcion.type = "button";
+        opcion.className = "list-group-item list-group-item-action d-flex justify-content-between";
+        opcion.innerHTML = "<strong></strong><span class='text-muted small'></span>";
+        opcion.querySelector("strong").textContent = c.nombre;
+        opcion.querySelector("span").textContent = `${c.tipo} ${c.documento}`;
+        opcion.addEventListener("click", () => usarCliente(c));
+        cliSugerencias.appendChild(opcion);
+      });
+      const documento = texto.replace(/\D/g, "");
+      if (clientes.length === 0 && /^[\d.\-\s]+$/.test(texto) && [7, 8, 11].includes(documento.length)) {
+        cliMensaje.className = "small mb-2 text-muted";
+        cliMensaje.textContent = "No está cargado. Apretá Buscar o Enter para darlo de alta.";
+      }
+    }, 200);
+  });
+
   async function buscarCliente() {
     const documento = cliDocumento.value.replace(/\D/g, "");
     cliNuevo.classList.add("d-none");
@@ -357,6 +459,7 @@
       usarCliente((await respuesta.json()).cliente);
     } else {
       cliMensaje.textContent = "";
+      cliSugerencias.innerHTML = "";
       cliNuevo.classList.remove("d-none");
       document.getElementById("cli-nombre").focus();
     }
@@ -380,7 +483,7 @@
     usarCliente(datos.cliente);
   });
   modalCliente.addEventListener("shown.bs.modal", () => {
-    cliDocumento.value = ""; cliMensaje.textContent = ""; cliNuevo.classList.add("d-none");
+    cliDocumento.value = ""; cliMensaje.textContent = ""; cliNuevo.classList.add("d-none"); cliSugerencias.innerHTML = "";
     document.getElementById("cli-nombre").value = ""; document.getElementById("cli-telefono").value = "";
     cliDocumento.focus();
   });
@@ -408,6 +511,10 @@
     const vuelto = medioPago() === "efectivo" ? ` · Vuelto <strong>${pesos(aCentavos(datos.vuelto))}</strong>` : " · Tarjeta";
     mostrarAviso(`<i class="bi bi-check-circle"></i> Venta #${datos.venta_id} registrada. Total ${pesos(aCentavos(datos.total))}${vuelto}
       <a class="alert-link ms-2" href="${URL_ANULAR.replace("/0/", "/" + datos.venta_id + "/")}">Anular esta venta</a>`, "success", 15);
+    carrito.filter((i) => i.tipo === "promo").forEach((i) => {
+      const promo = PROMOS.find((p) => p.id === i.id);
+      if (promo) promo.disponibles -= i.cantidad;
+    });
     carrito = [];
     montoRecibido.value = "";
     document.getElementById("medio-efectivo").checked = true;
@@ -420,7 +527,7 @@
     if (carrito.length && !confirm("¿Vaciar el carrito?")) return;
     carrito = [];
     montoRecibido.value = "";
-    resultados.innerHTML = "";
+    limpiarBusqueda();
     quitarCliente();
     dibujar();
     lector.focus();

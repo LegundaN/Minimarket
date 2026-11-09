@@ -28,9 +28,9 @@ class Producto(models.Model):
                                  validators=[MinValueValidator(Decimal("0.01"))])
     categoria = models.ForeignKey(Categoria, verbose_name="categoría", on_delete=models.SET_NULL,
                                   null=True, blank=True, related_name="productos")
-    # Sprint 3 - HU06 Stock: se descuenta con cada venta. Puede quedar negativo si se vende algo
-    # que no estaba cargado: la venta nunca se frena, y el producto aparece marcado para revisar.
-    stock = models.IntegerField("stock", default=0)
+    # Sprint 3 - HU06 Stock: se descuenta con cada venta y sube con las compras (egresos de caja chica).
+    # Nunca baja de 0: la caja no deja vender más unidades de las que hay.
+    stock = models.PositiveIntegerField("stock", default=0)
     # Sprint 3 - HU07 Costos: solo lo ve el administrador
     precio_costo = models.DecimalField("precio de costo", max_digits=10, decimal_places=2,
                                        null=True, blank=True, validators=[MinValueValidator(Decimal("0"))])

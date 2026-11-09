@@ -48,11 +48,34 @@ class Stock(Base):
         self.coca.refresh_from_db()
         self.assertEqual(self.coca.stock, 7)
 
-    def test_sin_stock_la_venta_no_se_frena(self):
-        self.cobrar([{"id": self.coca.pk, "cantidad": 12}], "20000")
+    def test_no_se_vende_mas_de_lo_que_hay(self):
+        r = self.cobrar([{"id": self.coca.pk, "cantidad": 12}], "20000")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("No hay stock suficiente", r.json()["error"])
         self.coca.refresh_from_db()
-        self.assertEqual(self.coca.stock, -2)
-        self.assertEqual(Venta.objects.count(), 1)
+        self.assertEqual(self.coca.stock, 10)
+        self.assertFalse(Venta.objects.exists())
+
+    def test_se_puede_vender_justo_lo_que_queda(self):
+        self.cobrar([{"id": self.coca.pk, "cantidad": 10}], "15000")
+        self.coca.refresh_from_db()
+        self.assertEqual(self.coca.stock, 0)
+
+    def test_promo_sin_stock_de_un_componente(self):
+        promo = Promocion.objects.create(nombre="Combo", precio=Decimal("2000"))
+        PromocionItem.objects.create(promocion=promo, producto=self.alfajor, cantidad=6)
+        # 1 promo usa 6 alfajores; con 6 sueltos más se piden 12 y hay 10
+        r = self.cobrar([{"tipo": "promo", "id": promo.pk, "cantidad": 1}, {"id": self.alfajor.pk, "cantidad": 6}], "9000")
+        self.assertEqual(r.status_code, 400)
+        self.alfajor.refresh_from_db()
+        self.assertEqual(self.alfajor.stock, 10)
+
+    def test_el_admin_no_puede_cargar_stock_negativo(self):
+        self.client.force_login(self.admin)
+        self.client.post(reverse("productos:editar", args=[self.coca.pk]),
+                         {"codigo": "C", "nombre": "Coca", "precio": "1500", "stock": "-3"})
+        self.coca.refresh_from_db()
+        self.assertEqual(self.coca.stock, 10)
 
 
 class Tarjeta(Base):
@@ -202,7 +225,8 @@ class MovimientosDelDia(Base):
         self.cobrar([{"id": self.coca.pk, "cantidad": 2}], "3000")
         self.cobrar([{"id": self.alfajor.pk, "cantidad": 1}], medio="tarjeta")
         self.anular(Venta.objects.filter(medio_pago="tarjeta").get())
-        self.client.post(reverse("ventas:caja_chica"), {"tipo": "egreso", "monto": "500", "motivo": "Proveedor"})
+        self.client.post(reverse("ventas:caja_chica"), {"tipo": "egreso", "monto": "500", "motivo": "Proveedor",
+                                                       "productos": json.dumps([{"id": self.coca.pk, "cantidad": 6}])})
         self.client.force_login(self.admin)
         r = self.client.get(reverse("ventas:descargar_movimientos"), {"fecha": timezone.localdate().isoformat()})
         self.assertIn("attachment", r["Content-Disposition"])
@@ -212,8 +236,9 @@ class MovimientosDelDia(Base):
         self.assertEqual(sorted(f[8] for f in cobros), ["Anulada", "Válida"])
         vendidos = [[c.value for c in f] for f in libro["Productos vendidos"].iter_rows(min_row=2)]
         self.assertEqual(vendidos, [["C", "Coca", 2, 3000]])  # la anulada no cuenta
-        tipos = [f[2].value for f in libro["Movimientos de caja"].iter_rows(min_row=2)]
-        self.assertEqual(tipos, ["Apertura de caja", "Egreso"])
+        filas = [[c.value for c in f] for f in libro["Movimientos de caja"].iter_rows(min_row=2)]
+        self.assertEqual([f[2] for f in filas], ["Apertura de caja", "Egreso"])
+        self.assertIn("Coca x 6", filas[1][3])
 
     def test_solo_el_admin(self):
         self.assertEqual(self.client.get(reverse("ventas:descargar_movimientos")).status_code, 403)
@@ -222,3 +247,69 @@ class MovimientosDelDia(Base):
         self.assertEqual(self.client.get(reverse("ventas:clientes")).status_code, 403)
         self.client.force_login(self.admin)
         self.assertEqual(self.client.get(reverse("ventas:clientes")).status_code, 200)
+
+
+class CompraEnCajaChica(Base):
+    """El egreso de caja chica es una compra: lleva productos y suma stock."""
+    def egreso(self, productos, monto="12000"):
+        return self.client.post(reverse("ventas:caja_chica"), {
+            "tipo": "egreso", "monto": monto, "motivo": "Distribuidora", "productos": json.dumps(productos)})
+
+    def test_egreso_suma_stock_y_resta_plata(self):
+        self.egreso([{"id": self.coca.pk, "cantidad": 24}, {"id": self.alfajor.pk, "cantidad": 12}])
+        self.coca.refresh_from_db(); self.alfajor.refresh_from_db()
+        self.assertEqual((self.coca.stock, self.alfajor.stock), (34, 22))
+        self.assertEqual(self.caja.efectivo_esperado, Decimal("-7000"))  # 5000 - 12000
+        mov = self.caja.movimientos.get()
+        self.assertEqual(mov.detalle_productos.count("x"), 2)
+
+    def test_egreso_sin_productos_no_se_registra(self):
+        r = self.egreso([])
+        self.assertContains(r, "Agregá los productos")
+        self.assertFalse(self.caja.movimientos.exists())
+
+    def test_producto_inexistente_o_cantidad_mala(self):
+        self.egreso([{"id": 99999, "cantidad": 1}])
+        self.egreso([{"id": self.coca.pk, "cantidad": 0}])
+        self.assertFalse(self.caja.movimientos.exists())
+        self.coca.refresh_from_db()
+        self.assertEqual(self.coca.stock, 10)
+
+    def test_ingreso_no_toca_el_stock(self):
+        self.client.post(reverse("ventas:caja_chica"), {"tipo": "ingreso", "monto": "300", "motivo": "Cambio",
+                                                       "productos": json.dumps([{"id": self.coca.pk, "cantidad": 5}])})
+        self.coca.refresh_from_db()
+        self.assertEqual(self.coca.stock, 10)
+        self.assertEqual(self.caja.movimientos.get().items.count(), 0)
+
+    def test_si_se_borra_el_producto_la_compra_queda_registrada(self):
+        nuevo = Producto.objects.create(codigo="N", nombre="Chicle", precio=Decimal("300"))
+        self.egreso([{"id": nuevo.pk, "cantidad": 3}], monto="600")
+        nuevo.delete()
+        self.assertEqual(self.caja.movimientos.get().detalle_productos, "Chicle x 3")
+
+
+class BusquedaMientrasSeEscribe(Base):
+    def test_productos_primero_los_que_empiezan_asi(self):
+        Producto.objects.create(codigo="X1", nombre="Galletitas con alfalfa", precio=Decimal("900"))
+        Producto.objects.create(codigo="X2", nombre="Alfajor blanco", precio=Decimal("900"))
+        r = self.client.get(reverse("ventas:buscar_producto"), {"q": "alf"})
+        nombres = [p["nombre"] for p in r.json()["productos"]]
+        self.assertEqual(nombres, ["Alfajor", "Alfajor blanco", "Galletitas con alfalfa"])
+
+    def test_clientes_por_documento_que_empieza_con(self):
+        Cliente.objects.create(documento="38111222", nombre="Ana")
+        Cliente.objects.create(documento="38999000", nombre="Bruno")
+        Cliente.objects.create(documento="20381112223", nombre="Carla SA")
+        r = self.client.get(reverse("ventas:buscar_cliente"), {"q": "38"})
+        self.assertEqual([c["nombre"] for c in r.json()["clientes"]], ["Ana", "Bruno"])
+        r = self.client.get(reverse("ventas:buscar_cliente"), {"q": "carl"})
+        self.assertEqual([c["nombre"] for c in r.json()["clientes"]], ["Carla SA"])
+        r = self.client.get(reverse("ventas:buscar_cliente"), {"q": "3"})
+        self.assertEqual(r.json()["clientes"], [])
+
+    def test_las_promos_avisan_cuantas_hay(self):
+        promo = Promocion.objects.create(nombre="Merienda", precio=Decimal("2000"))
+        PromocionItem.objects.create(promocion=promo, producto=self.alfajor, cantidad=3)
+        r = self.client.get(reverse("caja"))
+        self.assertEqual(r.context["promociones"][0]["disponibles"], 3)  # 10 alfajores / 3
